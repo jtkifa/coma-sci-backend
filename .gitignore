@@ -65,3 +65,5 @@ bin/
 
 # Local configuration
 local-config.lisp
+# local notes
+Local-Notes
