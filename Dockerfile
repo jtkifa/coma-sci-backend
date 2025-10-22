@@ -134,6 +134,7 @@ WORKDIR /root/coma-backend-jtk/jlib/nrwavelets
 RUN make && make install
 
 # Set library path so CFFI can find nrwavelets.so during build
+ARG LD_LIBRARY_PATH=""
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 RUN sbcl --non-interactive \
