@@ -1,0 +1,16 @@
+{
+  "TYPE":"REQUEST",
+  "COMMAND":"EXTRACT-EXTENSION",
+  "ID":"123abc",
+  "PARAMETERS": {
+                 "TYPE":"PARAMETERS",
+                 "FITS-FILE":"./onechip.fits.fz",
+                 "OUTPUT-DIRECTORY": "./onechip_out",
+                 
+                 "DECOMPRESS": true, 
+
+                 "EXTRACT-EXTENSION": "all",   
+
+                 "RENAME-NON-OBJECT-EXTENSIONS": "none"
+               }
+}

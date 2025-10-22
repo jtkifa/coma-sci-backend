@@ -1,0 +1,10 @@
+
+Environment variables:
+
+COMA-JSON-SERVER-DATA-DIR - directory where COMA puts working data.
+  It has to be universally writable because various users might be
+  using COMA.  Thus it should not have executables.
+
+  If it is not defined, then it puts data  into the coma-json-server
+  source tree as lisp-lib/astro/COMA-PROJECT/WORKING-DATA
+  which is excluded from git archive.

@@ -1,0 +1,9 @@
+{
+    "type":"request",
+    "command":"read-fits-header",
+    "id":"123abc",
+    "parameters": {"FITS-FILE" :"./test.fits",
+                   "EXTENSION" : 1,   
+                   "KEYWORD" : "EXPTIME"}
+}
+

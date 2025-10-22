@@ -1,0 +1,22 @@
+{
+       "type":"request",
+       "command":"get-ephem",
+       "id":"123abc",
+       "parameters": {
+                      "METHOD":"ORBIT",
+                      "ORBIT" : {
+		                 "ID":"Ceres",
+		                 "EPOCH-MJD":59000.0,
+				 "TIME-PERI-MJD":58239.997314127475,
+				 "ORBINC":10.588619999999997,
+				 "ANODE":80.28698999999997,
+				 "PERIHELION":2.5530053647967197,
+				 "ARG-PERIHELION":73.73166000000019,
+				 "ECCENTRICITY":0.07755710000000023},
+                      "OBJECT":"Ceres",
+                      "DT-MINUTES":60,  
+                      "OBSCODE":"568",
+                      "UTC-START":"2020-08-20T10:00:00",
+                      "UTC-END":"2020-08-20T10:20:00",
+                     }
+}

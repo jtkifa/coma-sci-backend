@@ -1,0 +1,14 @@
+
+
+1. set up ability to cross-calibrate images - eg, when we have a stack and an unshifted background stack,
+   use the background stack to calibrate the stack.
+
+  -- we have phot-calib:calibrate-image-with-image/mag-auto
+             phot-calib:transfer-phot-calib-headers
+
+2. Allow creation of background stack without subtracting it?
+
+2a. shift-and-add should return a sky stack if asked
+
+3. stacking with mean and median stack?
+

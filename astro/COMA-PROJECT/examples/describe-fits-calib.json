@@ -1,0 +1,8 @@
+
+{
+  "TYPE":"REQUEST",
+  "COMMAND":"DESCRIBE-FITS-CALIB",
+  "ID":"123abc",
+  "PARAMETERS": {"FITS-FILE":"./test.fits"
+                 }
+}

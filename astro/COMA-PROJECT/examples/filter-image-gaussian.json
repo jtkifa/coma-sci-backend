@@ -1,0 +1,15 @@
+{
+  "TYPE":"REQUEST",
+  "COMMAND":"FILTER-IMAGE",
+  "ID":"123abc",
+    "PARAMETERS": {
+	"FITS-FILE":"./sample.fits",
+	"CLOBBER":true,
+        "EXTENSION":1, 
+        "OUTPUT-FITS-FILE":"./filter-output.fits",
+        "FILTER": { 
+            "FILTER-TYPE": "GAUSSIAN",
+	    "SIGMA": 5
+        }
+    }
+}

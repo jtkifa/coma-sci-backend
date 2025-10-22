@@ -1,0 +1,69 @@
+
+The fields contained in an ephem from Raja's email
+
+
+________________________________________________________________
+
+== eph ==
+
+targetbody      char(20)
+centerbody      char(20)    
+centersite      char(20)
+ephstr          char(2)
+ctdatetime      char(25)
+jd              decimal(15,7)
+solarpres       char(1)
+lunarpres       char(1)
+j2kra           char(12)
+j2kdec          char(12)
+appra           char(12)
+appdec          char(12)
+dracosd         decimal(8,2)
+ddect           float
+amass           float
+tmageph         float
+nmageph  	float
+r		float
+rdot		float
+delta		float
+deldot		float
+sto		float
+tom		float
+illupercent	float
+glxlon		float
+glxlat		float
+
+________________________________________________________________
+
+== sunvect ==
+
+vectorstr       char(2)
+targetbody      char(80)
+centerbody      char(80)
+centersite      char(80)
+jd 		decimal(15,7)
+ct              char(40)
+x               float
+y 		float
+z		float
+vx		float
+vy		float
+vz		float
+
+________________________________________________________________
+
+== earthvect ==
+
+vectorstr       char(2)
+targetbody      char(80)
+centerbody      char(80)
+centersite      char(80)
+jd 		decimal(15,7)
+ct              char(40)
+x               float
+y 		float
+z		float
+vx		float
+vy		float
+vz		float
+
