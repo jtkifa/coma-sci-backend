@@ -1,8 +1,0 @@
-{
-  "TYPE":"REQUEST",
-  "COMMAND":"OBJECT-LOCATION-IN-IMAGE",
-  "ID":"123abc",
-  "PARAMETERS": {"FITS-FILE":"./sample.fits",
-                 "ORBIT": "JPL-ORBIT",
-		}
-}

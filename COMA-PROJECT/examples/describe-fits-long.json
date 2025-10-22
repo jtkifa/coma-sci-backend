@@ -1,6 +1,0 @@
-{
-    "type":"request",
-    "command":"describe-fits-long",
-    "id":"123abc",
-    "parameters": {"FITS-FILE":"./test.fits"}
-}

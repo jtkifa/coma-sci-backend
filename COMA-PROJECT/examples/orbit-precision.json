@@ -1,9 +1,0 @@
-{
-    "TYPE":"REQUEST",
-    "COMMAND":"ORBIT-PRECISION",
-    "ID":"123ABC",
-    "PARAMETERS": {
-	"OBJECT":"2P",
-	"UT":"2015-01-01T01:01:01-10"
-    }
-}

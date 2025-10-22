@@ -1,6 +1,0 @@
-{
-    "type":"request",
-    "command":"Hello",
-    "id":"123abc",
-    "parameters": {"a":1,"b":2,"c":3,  "delay":30}
-}
