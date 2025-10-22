@@ -1,0 +1,32 @@
+
+{
+    "TYPE":"REQUEST",
+    "COMMAND":"COLOR-CONVERT",
+    "ID":"123ABC",
+    "PARAMETERS":
+    {
+	"COLOR-CONVERSION-REQUESTS" :  
+        [   
+            { 
+                "TYPE": "COLOR-CONVERSION-REQUEST",
+                "ID": "color-conversion-1", 
+                "OUTPUT": "Rc",   
+                "KNOWNS": 
+                [
+                    { 
+                        "TYPE" : "COLOR-CONVERSION-KNOWN",
+                        "QUALITY": "oatlas",     
+                        "VALUE": 17.32,         
+                        "VALUE-ERROR": 0.12     
+                    },
+                    { 
+                        "TYPE" : "COLOR-CONVERSION-KNOWN",
+                        "QUALITY": "oatlas-catlas",  
+                        "VALUE": 0.43,           
+                        "VALUE-ERROR": 0.07      
+                    },
+                ]  
+            }
+	]
+    }
+}

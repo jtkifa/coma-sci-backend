@@ -1,0 +1,10 @@
+
+{
+    "type":"request",
+    "command":"get-orbit",
+    "id":"123abc",
+    "parameters": {"METHOD":"jpl-horizons",
+		   "OBJECT":"CometCapnKangaroo",
+		   "EPOCH-MJD": 51544.0}
+}
+

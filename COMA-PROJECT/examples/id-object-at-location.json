@@ -1,0 +1,16 @@
+{
+    "TYPE":"REQUEST",
+    "COMMAND":"ID-OBJECT-AT-LOCATION",
+    "ID":"123ABC",
+    "PARAMETERS": {
+        "OBJECT":"Kapf", 
+        "MJD":58849.0,
+        "RA": 132.3117,
+        "DEC": 18.116,
+        "SEARCH-RADIUS-ARCMIN": 10.0,
+        "FUZZY-MATCH-THRESHOLD": 0.30,
+        "MATCH-COMETS": true,
+        "MATCH-ASTEROIDS": true,
+        "MATCH-LANDOLT-STANDARDS": true,
+    }
+}

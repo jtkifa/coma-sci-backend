@@ -1,0 +1,19 @@
+
+flowchart TD
+    A[Get a directory of FITS files to ingest] --> B{Apply DESCRIBE-FITS-LONG, save results, and examine IS-REDUCED, or obtain reduction status another way}
+    B -->|IS-REDUCED:false| C(Apply REDUCE-IMAGES, taking REDUCED-LIST and perhaps FRINGECORRECTED-LIST as the new image set) --> D(Apply DESCRIBE-FITS-LONG to reduced images, save results) --> E
+    B -->|IS-REDUCED:true| E(Look in DESCRIBE-FITS-LONG for OBJECT, RA-J2000-APPROX, DEC-J2000-APPROX, MJD, FIELD-RADIUS-ARCMIN-APPROX)
+    E --> F(Query ID-OBJECT-AT-LOCATION with this RA,Dec,MJD,FieldRadius to get the real name of the OBJECT)
+    F --> G{Using data from DESCRIBE-FITS-LONG, is this a single extension / onechip FITS file, and is it compressed?}
+    G --> |onechip, uncompressed| K(Use CALIBRATE-IMAGE TO Perform image calibration or retrieve existing calibration)
+    G --> |onechip, compressed| Ga(Use EXTRACT-EXTENSION to uncompress image) --> Gb(Use DESCRIBE-FITS-LONG to update file description) --> K
+    G --> |multichip| Ha(Use WHICH-EXTENSION to figure out which extension the object is in)
+    Ha --> Hb{Use EXTRACT-EXTENSION to extract the object extension and other extensions, and decompress if needed}
+    Hb --> |object extension| Hc(Run DESCRIBE-FITS-LONG to get updated image description)
+    Hc --> K
+    Hb --> |non-object extensions| Hb1(Perhaps run CALIBRATE-IMAGE) --> Hd(Archive non-object extensions appropriately, probably having renamed OBJECT header in previous EXTRACT-EXTENSION)
+    K --> L(Use DO-PHOTOMETRY to obtain image photometry)
+   
+
+
+

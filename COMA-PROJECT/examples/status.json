@@ -1,0 +1,6 @@
+{
+    "type":"request",
+    "command":"status",
+    "id":"123xyz",
+    "PARAMETERS":{}
+}

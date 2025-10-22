@@ -1,0 +1,8 @@
+{
+  "TYPE":"REQUEST",
+  "COMMAND":"FIND-KNOWN-OBJECTS",
+  "ID":"123abc",
+  "PARAMETERS": {
+      "FITS-FILE":"./test.fits"
+  }
+}

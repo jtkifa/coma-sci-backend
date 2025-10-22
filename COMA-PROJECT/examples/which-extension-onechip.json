@@ -1,0 +1,14 @@
+{
+  "TYPE":"REQUEST",
+  "COMMAND":"WHICH-EXTENSION",
+  "ID":"123abc",
+  "PARAMETERS": {
+      "TYPE":"PARAMETERS", 
+      "FITS-FILE":"./onechip.fits",
+      
+      "POSITION": "OBJECT",
+      "ORBIT": "jpl-orbit",
+      
+  }
+    
+}

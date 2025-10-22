@@ -1,0 +1,15 @@
+
+{ 
+    "TYPE":"REQUEST",
+    "ID":"abc123",
+    "COMMAND":"get-orbit-xyz",
+    
+    "PARAMETERS" : {
+	"ORBIT":  "MPC-ORBIT",
+	"OBJECT-NAME": "Ceres", 
+	"MJD":55555.0,
+	"RHELIO-MAX": 30.0,
+	"DR-FRAC": 0.05
+    }
+}
+
