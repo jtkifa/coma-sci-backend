@@ -2,7 +2,7 @@ services:
   sci-backend:
     platform: linux/x86_64
     build:
-      context: . # Build from coma-backend-jtk directory
+      context: . # Build from coma-backend directory
       dockerfile: Dockerfile
     image: sci-backend:latest
     container_name: sci-backend
