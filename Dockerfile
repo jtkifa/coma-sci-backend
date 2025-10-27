@@ -86,11 +86,6 @@ RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
   --eval '(quicklisp-quickstart:install :path "/root/quicklisp")' && \
   rm quicklisp.lisp
 
-# Install buildapp for creating executables
-RUN sbcl --non-interactive \
-  --load /root/quicklisp/setup.lisp \
-  --eval '(ql:quickload :buildapp)' \
-  --eval '(buildapp:build-buildapp "/usr/local/bin/buildapp")'
 
 # ------------------------------------------------------------------
 # Compile and install cdsclient from CDS official source
@@ -124,9 +119,21 @@ WORKDIR /root/coma-backend
 # Note: nrwavelets is present in this codebase but build step is commented out (extraneous)
 COPY . .
 
-# Set LISP_LIB environment variable (required by Jan's jk-datadir package)
+# Set LISP_LIB environment variable, the top level of Lisp source tree
 ENV LISP_LIB=/root/coma-backend
+#
+# SET LISP_LIB_DATADIR environment variable, where dowloaded and cached Lisp system
+#   data is placedd
 ENV LISP_LIB_DATADIR=/data/support/sci-backend
+RUN mkdir -p $LISP_LIB_DATADIR
+
+# Set the directory where fasls (compiled lisp files, akin to .so or .o files) go
+#  when compiled by asdf - the default would be $HOME/cache/common-lisp
+ENV LISP_CACHE_DIR=/usr/local/cache/common-lisp
+RUN mkdir -p $LISP_CACHE_DIR
+
+# location of Lisp user init file
+ENV SBCLRC=$LISP_LIB/sbclrc.lisp
 
 # Build nrwavelets library from C source (Daubechies wavelets from Numerical Recipes)
 # This enables wavelet-based image filtering in imutils package
@@ -138,28 +145,20 @@ RUN make && make install
 ARG LD_LIBRARY_PATH=""
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
-RUN sbcl --non-interactive \
-  --load /root/quicklisp/setup.lisp \
-  --eval '(ql:quickload :alexandria)' \
-  --eval '(ql:quickload :hunchentoot)' \
-  --eval '(ql:quickload :drakma)' \
-  --eval '(ql:quickload :cl-ppcre)' \
-  --eval '(ql:quickload :cffi)' \
-  --eval '(ql:quickload :bordeaux-threads)' \
-  --eval '(ql:quickload :cl-fad)' \
-  --eval '(ql:quickload :cxml)' \
-  --eval '(ql:quickload :xmls)' \
-  --eval '(ql:quickload :fare-csv)' \
-  --eval '(ql:quickload :md5)' \
-  --eval '(ql:quickload :salza2)' \
-  --eval '(ql:quickload :lparallel)'
+
+WORKDIR /root/coma-backend
+
+# download required quicklisp packages
+RUN sbcl  --end-toplevel-options \
+  --non-interactive \
+  --userinit $SBCLRC \
+  --load ./quicklisp-package-download.lisp
 
 # ------------------------------------------------------------------
 # Download ASTORB asteroid orbit database at build time
 # Docker named volume will be initialized with this content on first container start
 # FASL will be compiled at runtime and stored in the same volume for persistence
 # ------------------------------------------------------------------
-WORKDIR /root/coma-backend
 RUN echo "Downloading latest ASTORB database from Lowell Observatory..." && \
   mkdir -p /data/support/sci-backend/astorb && \
   cd /data/support/sci-backend/astorb && \
@@ -170,25 +169,17 @@ RUN echo "Downloading latest ASTORB database from Lowell Observatory..." && \
   echo "ASTORB ready for Docker volume initialization" && \
   ls -lh astorb.dat.${MJD}.gz
 
-# Build the coma-json-server executable with buildapp
-# First try to load with debugging to get backtrace if it fails
-RUN sbcl --noinform --non-interactive \
-  --load /root/quicklisp/setup.lisp \
-  --eval '(asdf:initialize-source-registry (quote (:source-registry (:tree "/root/coma-backend/") :inherit-configuration)))' \
-  --eval '(handler-bind ((error (lambda (c) (format t "~%~%ERROR: ~A~%~%BACKTRACE:~%" c) (sb-debug:print-backtrace :count 50) (sb-ext:exit :code 1)))) (asdf:load-system :coma-json-server))' \
-  && echo "System loaded successfully!" \
-  || (echo "Failed to load system - see backtrace above" && exit 1)
 
-# If loading succeeded, build with buildapp
-# Use --dynamic-space-size 4096 (4GB in megabytes) for ASTORB FASL compilation
-RUN buildapp --output /usr/local/bin/coma-sci-backend \
-  --dynamic-space-size 4096 \
-  --asdf-tree /root/coma-backend \
-  --load-system coma-sci-backend \
-  --entry coma-sci-backend:main
+# compile the fasl files for coma-json-server
+#  dynamic-space is set to allow compilation of giant astorb fasl
+RUN sbcl --dynamic-space-size 4096 \
+    	 --non-interactive \
+      	 --userinit $SBCLRC \
+      	 --eval '(asdf:load-system "coma-json-server")'
 
-# Make executable
-RUN chmod +x /usr/local/bin/coma-sci-backend
+
+
+
 
 # Set working directory
 WORKDIR /root
