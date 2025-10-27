@@ -18,7 +18,7 @@
 
 ;; set up asdf to search for .asd files in $LISP_DIR
 (asdf:initialize-source-registry
- `(:source-registry (:tree ,*lisp-dir*)
+ `(:source-registry (:tree ,*lisp-lib*)
    :inherit-configuration))
 
 ;; load quicklisp
