@@ -1,5 +1,5 @@
 
-(defparameter *quicklisp-package*
+(defparameter *quicklisp-packages*
   '(:alexandria
     :hunchentoot
     :drakma
@@ -15,6 +15,11 @@
     :trivial-gray-streams
     :flexi-streams
     :lparallel))
+
+(load "quicklisp.lisp")
+
+(quicklisp-quickstart:install
+ :path (concatenate 'string *lisp-lib* "quicklisp"))
 
 (dolist (package *quicklisp-packages*)
   (ql:quickload package))

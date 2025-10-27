@@ -73,18 +73,6 @@ RUN git clone --depth 1 https://github.com/wakatara/simple-kepler-solver.git && 
   ldconfig && \
   cd /usr/local/src && rm -rf simple-kepler-solver
 
-# ------------------------------------------------------------------
-# Install SBCL and Quicklisp
-# ------------------------------------------------------------------
-RUN apt-get install -y sbcl
-
-# Install Quicklisp
-WORKDIR /root/coma-backend
-RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
-  sbcl --non-interactive \
-  --load quicklisp.lisp \
-  --eval '(quicklisp-quickstart:install :path "/root/quicklisp")' && \
-  rm quicklisp.lisp
 
 
 # ------------------------------------------------------------------
@@ -100,6 +88,10 @@ RUN wget http://cdsarc.cds.unistra.fr/ftp/pub/sw/cdsclient.tar.gz && \
   cd /usr/local/src && rm -rf cdsclient-* cdsclient.tar.gz
 
 
+# install SBCL
+RUN apt-get install -y sbcl
+
+
 # ------------------------------------------------------------------
 # Create directory structure for sci-backend data volume mounts
 # ------------------------------------------------------------------
@@ -113,31 +105,48 @@ RUN mkdir -p /data/support/sci-backend/catalogs \
 # ------------------------------------------------------------------
 # Copy and build coma-backend Lisp application
 # ------------------------------------------------------------------
-WORKDIR /root/coma-backend
 
-# Copy the entire coma-backend source tree from current directory
-# Note: nrwavelets is present in this codebase but build step is commented out (extraneous)
-COPY . .
+# ------------------------------------------------------------------
+# Install Quicklisp
+# ------------------------------------------------------------------
 
 # Set LISP_LIB environment variable, the top level of Lisp source tree
-ENV LISP_LIB=/root/coma-backend
+#ENV LISP_LIB=/root/coma-backend
+ENV LISP_LIB=/usr/local/src/lisp-lib
 #
 # SET LISP_LIB_DATADIR environment variable, where dowloaded and cached Lisp system
 #   data is placedd
 ENV LISP_LIB_DATADIR=/data/support/sci-backend
 RUN mkdir -p $LISP_LIB_DATADIR
 
+# location of Lisp user init file
+ENV SBCLRC=$LISP_LIB/sbclrc.lisp
+
 # Set the directory where fasls (compiled lisp files, akin to .so or .o files) go
 #  when compiled by asdf - the default would be $HOME/cache/common-lisp
 ENV LISP_CACHE_DIR=/usr/local/cache/common-lisp
 RUN mkdir -p $LISP_CACHE_DIR
 
-# location of Lisp user init file
-ENV SBCLRC=$LISP_LIB/sbclrc.lisp
+WORKDIR $LISP_LIB
+# Copy the entire coma-backend source tree from current directory
+# Note: nrwavelets is present in this codebase but build step is commented out (extraneous)
+COPY . .
+
+
+# download required quicklisp packages
+RUN echo "Installng quicklisp package system and downloading quicklisp packages"
+RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
+    sbcl  \
+    --non-interactive \
+    --userinit $SBCLRC \
+    --load ./quicklisp-package-download.lisp
+RUN echo "Done loading quicklisp libraries"
+
+
 
 # Build nrwavelets library from C source (Daubechies wavelets from Numerical Recipes)
 # This enables wavelet-based image filtering in imutils package
-WORKDIR /root/coma-backend/jlib/nrwavelets
+WORKDIR $LISP_LIB/jlib/nrwavelets
 RUN make && make install
 
 # Set library path so CFFI can find nrwavelets.so during build
@@ -146,23 +155,23 @@ ARG LD_LIBRARY_PATH=""
 ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 
-WORKDIR /root/coma-backend
-
-# download required quicklisp packages
-RUN sbcl  --end-toplevel-options \
-  --non-interactive \
-  --userinit $SBCLRC \
-  --load ./quicklisp-package-download.lisp
-
 
 
 # compile the fasl files for coma-json-server
 #  dynamic-space is set to allow compilation of giant astorb fasl
+RUN echo "Loading coma-json-server to compile-fasls and put them in $LISP_LIB"
 RUN sbcl --dynamic-space-size 4096 \
     	 --non-interactive \
       	 --userinit $SBCLRC \
       	 --eval '(asdf:load-system "coma-json-server")'
 
+
+RUN echo "Running sbcl again to see if it loads fast"
+
+RUN sbcl --dynamic-space-size 4096 \
+    	 --non-interactive \
+      	 --userinit $SBCLRC \
+      	 --eval '(asdf:load-system "coma-json-server")'
 
 
 

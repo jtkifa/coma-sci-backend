@@ -21,9 +21,5 @@
  `(:source-registry (:tree ,*lisp-lib*)
    :inherit-configuration))
 
-;; load quicklisp
-(load "/root/quicklisp/setup.lisp")
-
-(asdf:load-system "trivial-gray-streams") ;; may not be present in sbcl?
 
 
