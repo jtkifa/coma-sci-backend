@@ -154,20 +154,6 @@ RUN sbcl  --end-toplevel-options \
   --userinit $SBCLRC \
   --load ./quicklisp-package-download.lisp
 
-# ------------------------------------------------------------------
-# Download ASTORB asteroid orbit database at build time
-# Docker named volume will be initialized with this content on first container start
-# FASL will be compiled at runtime and stored in the same volume for persistence
-# ------------------------------------------------------------------
-RUN echo "Downloading latest ASTORB database from Lowell Observatory..." && \
-  mkdir -p /data/support/sci-backend/astorb && \
-  cd /data/support/sci-backend/astorb && \
-  MJD=$((( $(date +%s) / 86400 ) + 40587 - 1)) && \
-  echo "Using MJD: $MJD (Lowell is 1 day behind)" && \
-  wget --timeout=60 --tries=3 -O astorb.dat.${MJD}.gz https://ftp.lowell.edu/pub/elgb/astorb.dat.gz && \
-  echo "ASTORB download complete ($(du -h astorb.dat.${MJD}.gz | cut -f1))." && \
-  echo "ASTORB ready for Docker volume initialization" && \
-  ls -lh astorb.dat.${MJD}.gz
 
 
 # compile the fasl files for coma-json-server
