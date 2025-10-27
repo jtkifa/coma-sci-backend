@@ -13,6 +13,7 @@
     :md5
     :salza2
     :trivial-gray-streams
+    :flexi-streams
     :lparallel))
 
 (dolist (package *quicklisp-packages*)

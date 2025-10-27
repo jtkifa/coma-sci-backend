@@ -79,7 +79,7 @@ RUN git clone --depth 1 https://github.com/wakatara/simple-kepler-solver.git && 
 RUN apt-get install -y sbcl
 
 # Install Quicklisp
-WORKDIR /root
+WORKDIR /root/coma-backend
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
   sbcl --non-interactive \
   --load quicklisp.lisp \
