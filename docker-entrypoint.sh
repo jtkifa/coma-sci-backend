@@ -5,8 +5,8 @@ echo "====================================="
 echo "COMA Sci-Backend Starting..."
 echo "====================================="
 
-LISP_DATADIR=/data/support/sci-backend/lisp-data
-ASTORB_DATDIR=$LISP_DATADIR/astorb 
+
+ASTORB_DATADIR=$LISP_LIB_DATADIR/astorb 
 
 # Copy ASTORB database from build location to runtime location if needed
 if [ -d "/opt/astorb" ] && [ "$(ls -A /opt/astorb)" ]; then
