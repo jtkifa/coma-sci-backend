@@ -5,19 +5,22 @@ echo "====================================="
 echo "COMA Sci-Backend Starting..."
 echo "====================================="
 
+LISP_DATADIR=/data/support/sci-backend/lisp-data
+ASTORB_DATDIR=$LISP_DATADIR/astorb 
+
 # Copy ASTORB database from build location to runtime location if needed
 if [ -d "/opt/astorb" ] && [ "$(ls -A /opt/astorb)" ]; then
     echo "Checking ASTORB database..."
-    mkdir -p /data/support/sci-backend/astorb
+    mkdir -p $ASTORB_DATADIR
 
     # Copy any .gz files from /opt/astorb/ that don't exist in target
     for file in /opt/astorb/*.gz; do
         if [ -f "$file" ]; then
             filename=$(basename "$file")
-            if [ ! -f "/data/support/sci-backend/astorb/$filename" ]; then
+            if [ ! -f "${ASTORB_DATADIR}/$filename" ]; then
                 echo "  Copying fresh ASTORB database: $filename"
-                cp "$file" "/data/support/sci-backend/astorb/$filename"
-                echo "  ASTORB database ready ($(du -h /data/support/sci-backend/astorb/$filename | cut -f1))"
+                cp "$file" "$ASTORB_DATADIR/$filename"
+                echo "  ASTORB database ready ($(du -h $ASTORB_DATADIR/$filename | cut -f1))"
             else
                 echo "  ASTORB database already exists: $filename"
             fi

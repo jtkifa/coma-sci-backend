@@ -1,5 +1,29 @@
 FROM ubuntu:24.04
 
+################################################################
+##### DEFINITIONS OF IMPORTANT VARIABLES AND LOCATIONS  ########
+
+
+# LISP_LIB, the top level of Lisp source tree
+ENV LISP_LIB=/root/coma-backend
+
+# BACKEND_DATADIR IS persistent directory of sci-backend, defined in docker-compose.yml
+ENV BACKEND_DATADIR=/data/support/sci-backend
+
+# LISP_LIB_DATADIR is where certain lisp system put persistent data
+ENV LISP_LIB_DATADIR=$BACKEND_DATADIR/lisp-data
+
+# LISP_CACHE_DIR is where fasls (compiled lisp files, akin to .so or .o files) go
+#  when compiled by asdf - the default would be $HOME/.cache/common-lisp
+ENV LISP_CACHE_DIR=/root/.cache/common-lisp/
+
+
+################################################################
+
+
+
+
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
   wget build-essential curl git ca-certificates \
   zlib1g-dev libcurl4-openssl-dev libssl-dev
@@ -110,21 +134,11 @@ RUN mkdir -p /data/support/sci-backend/catalogs \
 # Install Quicklisp
 # ------------------------------------------------------------------
 
-# Set LISP_LIB environment variable, the top level of Lisp source tree
-#ENV LISP_LIB=/root/coma-backend
-ENV LISP_LIB=/usr/local/src/lisp-lib
-#
-# SET LISP_LIB_DATADIR environment variable, where dowloaded and cached Lisp system
-#   data is placedd
-ENV LISP_LIB_DATADIR=/data/support/sci-backend
-RUN mkdir -p $LISP_LIB_DATADIR
 
 # location of Lisp user init file
 ENV SBCLRC=$LISP_LIB/sbclrc.lisp
 
-# Set the directory where fasls (compiled lisp files, akin to .so or .o files) go
-#  when compiled by asdf - the default would be $HOME/cache/common-lisp
-ENV LISP_CACHE_DIR=/usr/local/cache/common-lisp
+
 RUN mkdir -p $LISP_CACHE_DIR
 
 WORKDIR $LISP_LIB
@@ -166,14 +180,6 @@ RUN sbcl --dynamic-space-size 4096 \
       	 --eval '(asdf:load-system "coma-json-server")'
 
 
-RUN echo "Running sbcl again to see if it loads fast"
-
-RUN sbcl --dynamic-space-size 4096 \
-    	 --non-interactive \
-      	 --userinit $SBCLRC \
-      	 --eval '(asdf:load-system "coma-json-server")'
-
-
 
 
 # Set working directory
@@ -184,7 +190,7 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Expose port
-EXPOSE 5054
+EXPOSE $COMA_PORT
 
 # Use entrypoint script to pass --dynamic-space-size flag at runtime
 ENTRYPOINT ["/docker-entrypoint.sh"]
