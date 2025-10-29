@@ -2,3 +2,15 @@ astorb.dat.NNNN must have NNNN as the correct epoch mjd of the elements.  The co
 are tested at runtime.
 
 Source: ftp.lowell.edu/pub/elgb/astorb.dat.gz
+
+
+To prevent auto-loading of astorb data file upon loading, do
+  (pconfig:set-config "astorb:dont-read-data-on-load" t)
+
+To prevent auto-downloading of astorb.dat.gz from lowell ftp, do
+  (pconfig:set-config "astorb:dont-auto-download-astorb" t)
+
+To prevent messages to *standard-output* when loading
+and compiling database
+   (pconfig:set-config "astorb:quiet" t)
+

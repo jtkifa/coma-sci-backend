@@ -33,6 +33,19 @@
 			(values
 			 output-file
 			 nbytes)))))))
+
+
+(defun retrieve-newest-astorb-file/iterate  (&key (verbose-stream nil) (ntries 3)
+						  (sleep-time 10))
+  (loop for i below ntries
+	do (multiple-value-bind (file nbytes)
+	       (ignore-errors (retrieve-newest-astorb-file :verbose-stream verbose-stream))
+	     (when (and file (> nbytes 1e8)) ;; a short file would be an error
+	       (return (values file nbytes))))
+	   (sleep sleep-time)
+	finally
+	   (error "Failed to retrieve astorb file from ~A in ~A attempts."
+		  *astorb-url* ntries)))
 				 
       
   
