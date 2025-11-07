@@ -41,8 +41,6 @@
 
 (defvar *the-astorb* nil) ;; the global astorb structure
 
-;; astorb files can be named astorb.dat.NNNN  or astorb.dat.NNNN.gz
-;; where NNNN is the MJD
 
 (defparameter *read-astorb-on-load*
   (not (pconfig:get-config "astorb:dont-read-data-on-load"))
@@ -54,17 +52,10 @@
 
 (defparameter *astorb-quiet*
   (pconfig:get-config "astorb:quiet")
-  "Load astorb database without verbose output")
+  "Load and compile astorb database without verbose output")
 
-(defparameter *astorb-data-dir-pathname*
-  (jk-datadir:get-datadir-for-system "astorb"))
-
-(defparameter *astorb-data-dir* (namestring *astorb-data-dir-pathname*))
-
-
-;; a list of all astorb files sorted so the latest is first
-(defvar *astorb-file-list* nil)
-(defvar *astorb-file* nil)
+(defparameter *astorb-data-dir*
+  (namestring (jk-datadir:get-datadir-for-system "astorb")))
 
 
 (defparameter  *astorb-info-output-stream*

@@ -48,7 +48,7 @@ where [...] arguments are optional
     debugging of a running instance of this server.  Port defaults to 9944.
 "
      (file-io:file-minus-dir sbcl-scripting:*script-name*)))
-    (sb-ext:exit :code 1))
+    (sb-ext:exit :code (if err-string 1 0)))
  
 
 (setf sbcl-scripting:*print-usage-and-quit* 'print-usage-and-quit)

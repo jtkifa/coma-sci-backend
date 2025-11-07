@@ -1,28 +1,32 @@
 FROM ubuntu:24.04
 
-################################################################
-##### DEFINITIONS OF IMPORTANT VARIABLES AND LOCATIONS  ########
+# ------------------------------------------------------------------
+# DEFINITIONS OF IMPORTANT VARIABLES AND LOCATIONS  ########
+# ------------------------------------------------------------------
+
+# main directory where we copy the source tree
+ENV COMA_BACKEND_DIR=/root/coma-backend
 
 
-# LISP_LIB, the top level of Lisp source tree
-ENV LISP_LIB=/root/coma-backend
-
-# BACKEND_DATADIR IS persistent directory of sci-backend, defined in docker-compose.yml
+# BACKEND_DATADIR is persistent directory of sci-backend, defined
+#  in docker-compose.yml
 ENV BACKEND_DATADIR=/data/support/sci-backend
 
+# LISP_LIB, the top level of Lisp source tree
+ENV LISP_LIB=$COMA_BACKEND_DIR
 # LISP_LIB_DATADIR is where certain lisp system put persistent data
 ENV LISP_LIB_DATADIR=$BACKEND_DATADIR/lisp-data
 
 # LISP_CACHE_DIR is where fasls (compiled lisp files, akin to .so or .o files) go
 #  when compiled by asdf - the default would be $HOME/.cache/common-lisp
 ENV LISP_CACHE_DIR=/root/.cache/common-lisp/
+# location of Lisp user init file
+ENV SBCLRC=$LISP_LIB/sbclrc.lisp
 
 
-################################################################
-
-
-
-
+# ------------------------------------------------------------------
+# Rquired OS packages
+# ------------------------------------------------------------------
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   wget build-essential curl git ca-certificates \
@@ -119,32 +123,28 @@ RUN apt-get install -y sbcl
 # ------------------------------------------------------------------
 # Create directory structure for sci-backend data volume mounts
 # ------------------------------------------------------------------
-RUN mkdir -p /data/support/sci-backend/catalogs \
+RUN mkdir -p $BACKEND_DATADIR/catalogs \
   /data/support/config \
-  /data/support/sci-backend/cache \
-  /data/support/sci-backend/orbits \
-  /data/support/sci-backend/work && \
+  $BACKEND_DATADIR/cache \
+  $BACKEND_DATADIR/orbits \
+  $BACKEND_DATADIR/work && \
   chmod -R 755 /data
 
 # ------------------------------------------------------------------
 # Copy and build coma-backend Lisp application
 # ------------------------------------------------------------------
 
-# ------------------------------------------------------------------
-# Install Quicklisp
-# ------------------------------------------------------------------
-
-
-# location of Lisp user init file
-ENV SBCLRC=$LISP_LIB/sbclrc.lisp
-
 
 RUN mkdir -p $LISP_CACHE_DIR
 
-WORKDIR $LISP_LIB
+WORKDIR $COMA_BACKEND_DIR
 # Copy the entire coma-backend source tree from current directory
 # Note: nrwavelets is present in this codebase but build step is commented out (extraneous)
 COPY . .
+
+# ------------------------------------------------------------------
+# Install Quicklisp
+# ------------------------------------------------------------------
 
 
 # download required quicklisp packages
@@ -160,39 +160,44 @@ RUN echo "Done loading quicklisp libraries"
 
 # Build nrwavelets library from C source (Daubechies wavelets from Numerical Recipes)
 # This enables wavelet-based image filtering in imutils package
-WORKDIR $LISP_LIB/jlib/nrwavelets
+WORKDIR $LISP_LIB/jlib/nrwavelets/c-src/
 RUN make && make install
 
 # Set library path so CFFI can find nrwavelets.so during build
 #  - if no LD_LIBRARY_PATH in buildtime, specify a null one
-ARG LD_LIBRARY_PATH=""
-ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-
-
-
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # compile the fasl files for coma-json-server
 #  dynamic-space is set to allow compilation of giant astorb fasl
+ENV DO_NOT_GET_ASTORB="TRUE"
 RUN echo "Loading coma-json-server to compile-fasls and put them in $LISP_LIB"
-RUN sbcl --dynamic-space-size 4096 \
-    	 --non-interactive \
-      	 --userinit $SBCLRC \
-      	 --eval '(asdf:load-system "coma-json-server")'
+WORKDIR $COMA_BACKEND_DIR
+# Running coma-json-server with 'help' will compile it and quit
+RUN echo "Running 'coma-json-server -help' to compile system and quit"
+RUN ./astro/COMA-PROJECT/Scripts/coma-json-server -help
 
+
+#RUN sbcl --dynamic-space-size 4096 \
+#    	 --non-interactive \
+#      	 --userinit $SBCLRC \
+#      	 --eval '(asdf:load-system "coma-json-server")'
+
+# now reset environment to get the astorb if needed, when running system
+ENV DO_NOT_GET_ASTORB=""
 
 
 
 # Set working directory
-WORKDIR /root
-
-# Copy entrypoint script to handle SBCL heap size configuration at runtime
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+WORKDIR $COMA_BACKEND_DIR
 
 # Expose port
 EXPOSE $COMA_PORT
 
 # Use entrypoint script to pass --dynamic-space-size flag at runtime
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["/usr/local/bin/coma-sci-backend"]
+RUN chmod +x "./docker-entrypoint.sh"
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
+
+# a test-string for ENTRYPOINT
+CMD ["coma-json-server"]
 

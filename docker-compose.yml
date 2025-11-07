@@ -34,7 +34,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    command: /usr/local/bin/coma-sci-backend
+    command: coma-json-server
 
 volumes:
   sci-backend-data:

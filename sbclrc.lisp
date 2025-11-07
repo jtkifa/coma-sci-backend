@@ -16,10 +16,26 @@
 
 (setf asdf:*user-cache* *asdf-cache-dir*)
 
+
 ;; set up asdf to search for .asd files in $LISP_DIR
 (asdf:initialize-source-registry
  `(:source-registry (:tree ,*lisp-lib*)
    :inherit-configuration))
 
+;; turn off infix banner at startup
+(setf (get :infix :dont-print-copyright) t) 
+
+(asdf:load-system "pconfig") ;; package config tool
+
+;; disable auto-loading of astorb because Docker volume not available
+;; at compile time
+(when (equalp (uiop:getenv "DO_NOT_GET_ASTORB") "TRUE")
+  (pconfig:set-config "astorb:dont-read-data-on-load" t)
+  (pconfig:set-config "astorb:dont-auto-download-astorb" t))
+
+
+;; initialize parallel kernel
+(asdf:load-system "lparallel")
+(setf lparallel:*kernel* (lparallel:make-kernel 4))
 
 

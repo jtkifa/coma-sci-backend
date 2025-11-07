@@ -18,7 +18,24 @@ Solution:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Issue: moving coma-json-server from its position in astro/COMA-PROJECT/
-       to astro/ breaks parallel to canonical source tree.
+       to astro/ breaks parallelism with canonical source tree.
 
-Soluton:
+Solution: instead of coma-json-server put COMA-PROJECT into astro
+          Can always move it one dir up later.
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Issue: astorb was a bit of a mess with its loading.
+
+Solution: rewrite the database loading code to be a lot cleaner, with
+          better ways of telling it whether it should load database
+	  at startup.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Issue: building a single app isn't really the normal Lisp thing
+       to do
+
+Solution: remove load-all.lisp, and remove app building.
+          Change the Dockerfile to run a coma-sci-backend.sh
+	  script that in turns runs astro/COMA-PROJECT/Scripts/

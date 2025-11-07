@@ -7,6 +7,13 @@ Routines for reading and compiling astorb
 
 (in-package astorb)
 
+
+;; a list of all astorb files sorted so the latest is first, set during loading
+;; possibly useful for diagnostics
+(defvar *astorb-file-list* nil)
+(defvar *astorb-file* nil)
+
+
 ;; format only if *astorb-quiet* is false
 (defun %aformat (&rest args)
   (when (not *astorb-quiet*)

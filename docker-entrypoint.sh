@@ -34,12 +34,11 @@ echo "====================================="
 echo "Starting COMA Sci-Backend executable"
 echo "====================================="
 
-# Launch the executable with increased heap size for ASTORB FASL compilation
-# The author normally uses 8GB for ASTORB compilation
-# The --dynamic-space-size flag must be passed at runtime to the SBCL-based executable
-if [[ "$1" == "/usr/local/bin/coma-sci-backend" ]]; then
-    echo "Launching with --dynamic-space-size 8192 (8GB heap)"
-    exec "$1" --dynamic-space-size 8192 "${@:2}"
+
+
+if [[ "$1" == "coma-json-server" ]]; then
+    exec ./astro/COMA-PROJECT/Scripts/coma-json-server \
+	 -web-server -web-port $COMA_PORT
 else
     # Execute other commands as-is
     exec "$@"
