@@ -28,17 +28,10 @@ The following native libraries must be installed and available in `/usr/local/li
 1. **libcfitsio.so** - FITS file I/O (with --enable-reentrant)
 2. **libslalib.so** - SLALIB astronomical library
 3. **libsolkep.so** - Simple Kepler orbit solver
-4. **libkdtree.so** - KD-tree spatial indexing
-5. **libconcaveman.so** - Concave hull computation
-6. **libtsnnls.so** - Sparse non-negative least squares
-7. **libxpa.so** - XPA inter-process communication
-8. **libwcs.so** - WCS (World Coordinate System)
-9. **PGPLOT** - Graphics library
-10. **FFTW3** - Fast Fourier Transform library
+4. **libwcs.so** - WCS (World Coordinate System)
+5. **PGPLOT** - Graphics library
+6. **FFTW3** - Fast Fourier Transform library
 
-### Optional Libraries
-
-- **libdigest2.so** - MPC NEO orbit classifier (if digest2 features enabled)
 
 ## Quick Build
 
@@ -46,14 +39,9 @@ The following native libraries must be installed and available in `/usr/local/li
 cd /path/to/coma-sci-backend
 
 # Load and verify system
-sbcl --load build.lisp
+./COMA-PROJECT/Scripts/coma-json-server -help
 
-# Or build executable directly with buildapp
-buildapp --output coma-sci-backend \
-         --dynamic-space-size 4096 \
-         --asdf-tree . \
-         --load-system coma-sci-backend \
-         --entry coma-sci-backend:main
+
 ```
 
 ## Docker Build (Recommended)
@@ -62,7 +50,8 @@ The recommended way to build is using Docker, which handles all dependencies:
 
 ```bash
 cd /path/to/coma-sci-backend
-docker-compose up --build
+docker compose build
+docker compose up
 ```
 
 The Docker build will:
@@ -70,46 +59,32 @@ The Docker build will:
 2. Build custom libraries (CFITSIO, SLALIB, nrwavelets, simple-kepler-solver)
 3. Install SBCL, Quicklisp, and buildapp
 4. Install Quicklisp dependencies
-5. Download latest ASTORB database from Lowell Observatory
-6. Build the executable with buildapp
-7. Create `/usr/local/bin/coma-sci-backend`
+5. Compile the Lisp app (into /root/.cache/../*.fasl files), but NOT download astorb database
 
 ## Running the Server
 
 ### Standalone Executable
 
 ```bash
-# Default settings (port 8080, host 0.0.0.0)
 # Note: Docker deployment uses port 5054
-./coma-sci-backend
-
-# Custom settings via environment variables
-COMA_PORT=5054 COMA_HOST=0.0.0.0 ./coma-sci-backend
-
-# With increased heap size for ASTORB compilation (8GB)
-./coma-sci-backend --dynamic-space-size 8192
+./astro/COMA-PROJECT/Scripts/coma-json-server -web-server -web-port 5054 
 ```
 
 ### From SBCL REPL
 
-```lisp
-(ql:quickload :coma-sci-backend)
-(coma-sci-backend:launch-coma-json-server-web-interface :port 5054 :host "0.0.0.0")
-```
+See source code in ./astro/COMA-PROJECT/Scripts/coma-json-server.lisp
 
 ## Runtime Initialization
 
 When the server starts, `coma-sci-backend:main` performs runtime initialization:
 
 1. **Initializes lparallel kernel** (4 worker threads)
-   - MUST be at runtime: buildapp cannot save core with multiple threads
-2. **Initializes ASTORB file list**
-   - Finds the latest ASTORB database file
+2. **Initializes ASTORB database**
+   - either finds the latest (by MJD) `astorb.<MJD>.<architecture>.fasl` or
+   - finds the latest `astorb.<MJD>.dat[.gz]` file and compiles to the fasl, or
+   - downloads the latest  `astorb.<MJD>.dat.gz` database, and compiles to the fasl
 3. **Loads ASTORB asteroid database**
-   - Large dataset (~200MB compressed) loaded at runtime
-   - Compiles to FASL cache on first run for faster subsequent startups
-4. **Initializes orbit elements** for small body identification
-   - Depends on ASTORB data
+   - Compiled to fasl by steps above
 
 **Note:** Most smaller datasets (observatory data, Landolt standards, small body names, comet data) are now loaded at compile-time via `eval-when` blocks. Only lparallel and ASTORB require runtime initialization.
 
@@ -123,7 +98,8 @@ When the server starts, `coma-sci-backend:main` performs runtime initialization:
 - `VIZQUERY_PROGRAM` - Path to vizquery program (CDS catalog access)
 - `VIZQUERY_SITE` - VizieR mirror site to use
 - `TERAPIX_DIRECTORY` - Directory for TERAPIX tools output
-- `LISP_LIB` - Path to coma-sci-backend source (default: /root/coma-backend-jtk)
+- `COMA_BACKEND_DIR`  - Home directory of system
+- `LISP_LIB` - Path to coma-sci-backend source (default: $COMA_BACKEND_dir)
 - `LISP_LIB_DATADIR` - Path to runtime data directory (default: /data/support/sci-backend)
 - `LD_LIBRARY_PATH` - Should include `/usr/local/lib` for native libraries
 
