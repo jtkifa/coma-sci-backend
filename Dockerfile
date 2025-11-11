@@ -24,6 +24,9 @@ ENV LISP_CACHE_DIR=/root/.cache/common-lisp/
 ENV SBCLRC=$LISP_LIB/sbclrc.lisp
 
 
+ENV COMA_PORT=5054
+
+
 # ------------------------------------------------------------------
 # Rquired OS packages
 # ------------------------------------------------------------------
