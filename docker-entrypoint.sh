@@ -38,7 +38,7 @@ echo "====================================="
 
 if [[ "$1" == "coma-json-server" ]]; then
     exec ./astro/COMA-PROJECT/Scripts/coma-json-server \
-	 -web-server -web-port $COMA_PORT
+	 -web-server -web-port $COMA_PORT -web-host "0.0.0.0"
 else
     # Execute other commands as-is
     exec "$@"
