@@ -23,7 +23,11 @@ ENV LISP_CACHE_DIR=/root/.cache/common-lisp/
 # location of Lisp user init file
 ENV SBCLRC=$LISP_LIB/sbclrc.lisp
 
+# By default don't build astorb
+ENV GET_ASTORB=FALSE
 
+
+# Web server is on COMA_PORT
 ENV COMA_PORT=5054
 
 
@@ -33,7 +37,7 @@ ENV COMA_PORT=5054
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   wget build-essential curl git ca-certificates \
-  zlib1g-dev libcurl4-openssl-dev libssl-dev
+  zlib1g-dev libcurl4-openssl-dev libssl-dev rsync
 RUN apt-get install -y gfortran libgfortran5 pgplot5 libfftw3-double3 libfftw3-single3 libfftw3-dev
 # Create symlinks for CFFI to find FFTW3 libraries
 RUN (ln -s /usr/lib/aarch64-linux-gnu/libfftw3.so /usr/lib/libfftw3.so || \
@@ -151,7 +155,7 @@ COPY . .
 
 
 # download required quicklisp packages
-RUN echo "Installng quicklisp package system and downloading quicklisp packages"
+RUN echo "Installing quicklisp package system and downloading quicklisp packages"
 RUN curl -O https://beta.quicklisp.org/quicklisp.lisp && \
     sbcl  \
     --non-interactive \
@@ -170,23 +174,34 @@ RUN make && make install
 #  - if no LD_LIBRARY_PATH in buildtime, specify a null one
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
+################################################################
 # compile the fasl files for coma-json-server
 #  dynamic-space is set to allow compilation of giant astorb fasl
-ENV DO_NOT_GET_ASTORB="TRUE"
-RUN echo "Loading coma-json-server to compile-fasls and put them in $LISP_LIB"
 WORKDIR $COMA_BACKEND_DIR
-# Running coma-json-server with 'help' will compile it and quit
-RUN echo "Running 'coma-json-server -help' to compile system and quit"
+# if the environment variable GET_ASTORB=TRUE then
+# astorb will be downloaded from Lowell and compiled into
+# a fasl in /opt/lisp-data/astorb.  Otherwise, this step
+# will happen at run-time.
+
+
+# back up datadir variable
+ENV LISP_LIB_DATADIR_SAVE=$LISP_LIB_DATADIR
+# set LISP_LIB_DATADIR to build location inside container
+#   from where it will be copied when running container
+ENV LISP_LIB_DATADIR=/opt/lisp-data
+
+# delete any old astorb if building new astorb
+RUN if [ ${GET_ASTORB}x=TRUEx ] ; then rm -rf /opt/lisp-data/astorb  ; fi
+RUN echo "GET_ASTORB is $GET_ASTORB" ; sleep 10
+# build coma-json-server, including download and compilation of astorb
 RUN ./astro/COMA-PROJECT/Scripts/coma-json-server -help
+# restore  LISP_LIB_DATADIR to its location on a Docker volume
+ENV LISP_LIB_DATADIR=$LISP_LIB_DATADIR_SAVE
+ENV LISP_LIB_DATADIR_SAVE=""
+################################################################
 
 
-#RUN sbcl --dynamic-space-size 4096 \
-#    	 --non-interactive \
-#      	 --userinit $SBCLRC \
-#      	 --eval '(asdf:load-system "coma-json-server")'
 
-# now reset environment to get the astorb if needed, when running system
-ENV DO_NOT_GET_ASTORB=""
 
 
 

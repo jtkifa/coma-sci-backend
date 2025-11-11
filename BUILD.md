@@ -50,9 +50,12 @@ The recommended way to build is using Docker, which handles all dependencies:
 
 ```bash
 cd /path/to/coma-sci-backend
-docker compose build
+GET_ASTORB=TRUE docker compose build
 docker compose up
 ```
+
+If `GET_ASTORB=TRUE' is not present, then download and compilation of astorb database is deferred to run time.  Deferring the astorb build is useful for ensuring that latest version is present during runtime, and for speeding up development builds.
+
 
 The Docker build will:
 1. Install all native library dependencies
@@ -61,9 +64,8 @@ The Docker build will:
 4. Install Quicklisp dependencies
 5. Compile the Lisp app (into /root/.cache/../*.fasl files), but NOT download astorb database
 
-## Running the Server
+## Running the Server from command line
 
-### Standalone Executable
 
 ```bash
 # Note: Docker deployment uses port 5054
@@ -72,7 +74,7 @@ The Docker build will:
 
 ### From SBCL REPL
 
-See source code in ./astro/COMA-PROJECT/Scripts/coma-json-server.lisp
+See source code in `./astro/COMA-PROJECT/Scripts/coma-json-server.lisp` to see which functions are called from SBCL REPL.
 
 ## Runtime Initialization
 
@@ -102,6 +104,7 @@ When the server starts, `coma-sci-backend:main` performs runtime initialization:
 - `LISP_LIB` - Path to coma-sci-backend source (default: $COMA_BACKEND_dir)
 - `LISP_LIB_DATADIR` - Path to runtime data directory (default: /data/support/sci-backend)
 - `LD_LIBRARY_PATH` - Should include `/usr/local/lib` for native libraries
+- `GET_ASTORB` - if "TRUE" then download and build the astorb fasl during build phase, and keep in container. Otherwise, do at runtime.
 
 ### Data Directories
 
@@ -111,7 +114,7 @@ The server expects the following directory structure:
 /data/
 ├── support/
 │   ├── sci-backend/
-│   │   ├── astorb/        # ASTORB database (downloaded at build, persisted via volume)
+│   │   ├── astorb/        # ASTORB database (optionally downloaded at build, persisted via volume)
 │   │   ├── cache/         # Runtime cache
 │   │   ├── orbits/        # Cached orbit data
 │   │   ├── work/          # Working directory
@@ -124,10 +127,7 @@ The server expects the following directory structure:
 
 ### Missing Native Libraries
 
-```bash
-# Check which libraries are missing
-ldd ./coma-sci-backend
-
+```
 # Verify library paths
 ldconfig -p | grep -E "slalib|cfitsio|kdtree|xpa|nrwavelets|solkep"
 ```
@@ -168,6 +168,9 @@ curl -X POST http://localhost:5054/submit-json \
 # Or test with Docker
 docker exec sci-backend curl -f http://localhost:5054/health
 ```
+## NOTE on SBCL heap
+
+The 8GB heap may seem excessive at first glance.  4GB is probably enough.  However, this memory is not immediately allocated; it is merely mapped, and represents the maximum memory usable by the process.  A large amount of peak memory is required for compiling the astorb library, and may be needed while running to handling mutiple astronomical images images in multiple threads.   SBCL has a compacting garbage collector that returns unused memory back to the OS. 
 
 ## Docker Architecture Notes
 

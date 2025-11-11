@@ -27,11 +27,14 @@
 
 (asdf:load-system "pconfig") ;; package config tool
 
-;; disable auto-loading of astorb because Docker volume not available
-;; at compile time
-(when (equalp (uiop:getenv "DO_NOT_GET_ASTORB") "TRUE")
-  (pconfig:set-config "astorb:dont-read-data-on-load" t)
-  (pconfig:set-config "astorb:dont-auto-download-astorb" t))
+;; enable auto-download and compilation of astorb if requested
+(if (equalp (uiop:getenv "GET_ASTORB") "TRUE")
+    (progn
+      (pconfig:set-config "astorb:dont-read-data-on-load" nil)
+      (pconfig:set-config "astorb:dont-auto-download-astorb" nil))
+     (progn
+      (pconfig:set-config "astorb:dont-read-data-on-load" t)
+      (pconfig:set-config "astorb:dont-auto-download-astorb" t)))
 
 
 ;; initialize parallel kernel

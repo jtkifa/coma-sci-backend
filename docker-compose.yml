@@ -16,6 +16,7 @@ services:
       - VIZQUERY_SITE=${VIZQUERY_SITE}
       - TERAPIX_DIRECTORY=${TERAPIX_DIRECTORY}
       - LD_LIBRARY_PATH=/usr/local/lib
+      - GET_ASTORB=FALSE
     volumes:
       # Named volume for sci-backend data (includes ASTORB from image + runtime FASL)
       # Docker will initialize this volume with /data/support/sci-backend content from image

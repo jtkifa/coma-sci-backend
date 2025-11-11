@@ -37,18 +37,7 @@ These small datasets (~few MB) are compiled into the executable for optimal perf
 - **ASTORB database**: Large dataset (~200MB compressed, ~1GB FASL)
 - **Orbit elements**: Derived from ASTORB
 
-### Key Modifications for Docker
 
-**Critical changes** (must be preserved):
-1. `astro/small-body-identify/sbid-search.lisp` - lparallel initialization commented out
-2. `astro/astorb/astorb.lisp` - ASTORB loading commented out
-3. `coma-json-server/main.lisp` - Entry point with runtime initialization
-4. `coma-json-server/dispatcher.lisp` - Modern YASON API (no `*yason-float-type*`)
-
-**Removed for cleanliness**:
-- Development tools (slime/, asdf/, INIT-FILES/)
-- Local quicklisp-systems/ directory
-- Build artifacts and symbolic links
 
 ## Repository Structure
 
@@ -212,10 +201,10 @@ docker-compose up -d
 ```
 
 The container will:
-1. Copy ASTORB database from image to named volume (first run only)
+1. Copy ASTORB database from image to named volume (first run only), if the image was built with astorb database.
 2. Launch executable with 8GB heap
 3. Initialize lparallel kernel
-4. Load ASTORB database (compile FASL on first run)
+4. Load ASTORB database (either copied from image, or downloadd and compiled to fasl on first run)
 5. Start web server on port 5054
 
 Check status:
@@ -234,14 +223,6 @@ docker exec sci-backend curl -f http://localhost:5054/health
 COMA_PORT=5054 COMA_HOST=0.0.0.0 ./coma-sci-backend --dynamic-space-size 8192
 ```
 
-The `main()` function in `coma-sci-backend:main`:
-1. Parses environment variables (COMA_PORT, COMA_HOST)
-2. Initializes lparallel kernel (4 worker threads)
-3. Loads ASTORB database (compiles FASL on first run)
-4. Initializes orbit elements for object identification
-5. Launches the Hunchentoot web server on configured port
-6. Runs indefinitely
-
 ## Configuration
 
 ### Environment Variables
@@ -255,6 +236,7 @@ The `main()` function in `coma-sci-backend:main`:
 - **LISP_LIB** - Path to source code (set by Docker)
 - **LISP_LIB_DATADIR** - Path to runtime data (set by Docker)
 - **LD_LIBRARY_PATH** - Must include `/usr/local/lib`
+- **GET_ASTORB** - if set to TRUE on Docker build, download the astorb database and compile to fast loading fasl.  Otherwise, this will happen at run-time.
 
 ### Volume Mounts
 
@@ -269,20 +251,12 @@ The `docker-compose.yml` defines:
 - Loaded at compile-time via eval-when blocks
 
 **Loaded at runtime:**
-- ASTORB database downloaded during Docker build
+- ASTORB database downloaded during Docker build if GET_ASTORB=TRUE
 - Copied to volume at container startup
 - FASL cache persisted for fast restarts
 
 ## Maintaining Docker Compatibility
 
-### Critical Requirements
-
-These changes MUST be preserved:
-
-1. **lparallel initialization** - `sbid-search.lisp` eval-when stays commented out
-2. **ASTORB loading** - `astorb.lisp` eval-when stays commented out
-3. **Runtime initialization** - `main.lisp` calls lparallel and ASTORB init
-4. **YASON compatibility** - Don't use deprecated `*yason-float-type*`
 
 ### What Works Correctly
 

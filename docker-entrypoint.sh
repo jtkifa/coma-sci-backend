@@ -8,27 +8,24 @@ echo "====================================="
 
 ASTORB_DATADIR=$LISP_LIB_DATADIR/astorb 
 
-# Copy ASTORB database from build location to runtime location if needed
-if [ -d "/opt/astorb" ] && [ "$(ls -A /opt/astorb)" ]; then
-    echo "Checking ASTORB database..."
-    mkdir -p $ASTORB_DATADIR
+# copy all Lisp data (like astorb.MJD.dat.gz and astorb..fasl) from
+# build location to runtime location.  If they don't exist then they will be
+# dowloaded and compiled at run time.
 
-    # Copy any .gz files from /opt/astorb/ that don't exist in target
-    for file in /opt/astorb/*.gz; do
-        if [ -f "$file" ]; then
-            filename=$(basename "$file")
-            if [ ! -f "${ASTORB_DATADIR}/$filename" ]; then
-                echo "  Copying fresh ASTORB database: $filename"
-                cp "$file" "$ASTORB_DATADIR/$filename"
-                echo "  ASTORB database ready ($(du -h $ASTORB_DATADIR/$filename | cut -f1))"
-            else
-                echo "  ASTORB database already exists: $filename"
-            fi
-        fi
-    done
-else
-    echo "Warning: No ASTORB database found at /opt/astorb/"
+if [ -d $LISP_LIB_DATADIR ] && [ -d /opt/lisp-data ] ; then
+    # trailing slash on source dir means copy contents to dest dir
+    rsync -a /opt/lisp-data/ $LISP_LIB_DATADIR
 fi
+
+# If a more recent astorb.MJD.dat.gz is present in $ASTORB_DATADIR
+# then the current fasl file will be ignored and the new one will be rebuilt.
+# This will take about 5-10 minutes.
+
+
+
+# set auto-download of astorb to true, so that if astorb
+# isn't present, it will be retrieved and compiled
+export GET_ASTORB=TRUE
 
 echo "====================================="
 echo "Starting COMA Sci-Backend executable"
