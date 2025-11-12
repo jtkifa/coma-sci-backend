@@ -4,19 +4,26 @@ services:
     build:
       context: . # Build from coma-backend directory
       dockerfile: Dockerfile
+      args:
+         GET_ASTORB: ${GET_ASTORB} # if TRUE then retrieve and compile astorb in build stage
+         RUN_LISP_LISTENER: ${RUN_LISP_LISTENER} # open a Lisp REPL on COMA_PORT
     image: sci-backend:latest
     container_name: sci-backend
     hostname: sci-backend
     ports:
+      # web port
       - 5054:5054
+      # Lisp listener port (diagnostics)
+      - 5055:5055
     environment:
       - COMA_SERVER_HOST=${COMA_SERVER_HOST}
       - COMA_PORT=5054
+      - RUN_LISP_LISTENER=TRUE      
+      - LISP_LISTENER_PORT=5055
       - VIZQUERY_PROGRAM=${VIZQUERY_PROGRAM}
       - VIZQUERY_SITE=${VIZQUERY_SITE}
       - TERAPIX_DIRECTORY=${TERAPIX_DIRECTORY}
       - LD_LIBRARY_PATH=/usr/local/lib
-      - GET_ASTORB=FALSE
     volumes:
       # Named volume for sci-backend data (includes ASTORB from image + runtime FASL)
       # Docker will initialize this volume with /data/support/sci-backend content from image

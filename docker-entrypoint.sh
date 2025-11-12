@@ -34,9 +34,21 @@ echo "====================================="
 
 
 if [[ "$1" == "coma-json-server" ]]; then
-    exec ./astro/COMA-PROJECT/Scripts/coma-json-server \
-	 -web-server -web-port $COMA_PORT -web-host "0.0.0.0"
+    shopt -s nocasematch  # So TRUE and TrUe and true work
+    if [[ $RUN_LISP_LISTENER == "TRUE" ]] ; then
+        echo "Starting Lisp Slime REPL on 0.0.0.0:$LISP_LISTENER_PORT"
+	exec ./astro/COMA-PROJECT/Scripts/coma-json-server \
+	     -web-server -web-port $COMA_PORT -web-host "0.0.0.0" \
+	     -lisp-repl -lisp-repl-host "0.0.0.0" \
+	     -lisp-repl-port $LISP_LISTENER_PORT
+    else
+	exec ./astro/COMA-PROJECT/Scripts/coma-json-server \
+	     -web-server -web-port $COMA_PORT -web-host "0.0.0.0"
+    fi
 else
     # Execute other commands as-is
     exec "$@"
 fi
+
+# reset case case sensitivity
+shopt -u nocasematch

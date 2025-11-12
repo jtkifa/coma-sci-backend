@@ -23,13 +23,19 @@ ENV LISP_CACHE_DIR=/root/.cache/common-lisp/
 # location of Lisp user init file
 ENV SBCLRC=$LISP_LIB/sbclrc.lisp
 
-# By default don't build astorb
-ENV GET_ASTORB=FALSE
-
 
 # Web server is on COMA_PORT
 ENV COMA_PORT=5054
 
+# Don't download and compile astorb in build phase by default, but
+# make it possible via ARG GET_ASTORB=TRUE
+ARG GET_ASTORB="FALSE"
+ENV GET_ASTORB=${GET_ASTORB}
+
+# Run a Lisp listener (REPL), for diagnostics.  Connect using Emacs SLIME.
+ARG RUN_LISP_LISTENER="TRUE"
+ENV RUN_LISP_LISTENER=${RUN_LISP_LISTENER}
+ENV LISP_LISTENER_PORT=5055
 
 # ------------------------------------------------------------------
 # Rquired OS packages
@@ -178,7 +184,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 # compile the fasl files for coma-json-server
 #  dynamic-space is set to allow compilation of giant astorb fasl
 WORKDIR $COMA_BACKEND_DIR
-# if the environment variable GET_ASTORB=TRUE then
+# if argument GET_ASTORB=TRUE then
 # astorb will be downloaded from Lowell and compiled into
 # a fasl in /opt/lisp-data/astorb.  Otherwise, this step
 # will happen at run-time.
@@ -192,7 +198,7 @@ ENV LISP_LIB_DATADIR=/opt/lisp-data
 
 # delete any old astorb if building new astorb
 RUN if [ ${GET_ASTORB}x=TRUEx ] ; then rm -rf /opt/lisp-data/astorb  ; fi
-RUN echo "GET_ASTORB is $GET_ASTORB" ; sleep 10
+#
 # build coma-json-server, including download and compilation of astorb
 RUN ./astro/COMA-PROJECT/Scripts/coma-json-server -help
 # restore  LISP_LIB_DATADIR to its location on a Docker volume
@@ -210,6 +216,7 @@ WORKDIR $COMA_BACKEND_DIR
 
 # Expose port
 EXPOSE $COMA_PORT
+EXPOSE $LISP_LISTENER_PORT
 
 # Use entrypoint script to pass --dynamic-space-size flag at runtime
 RUN chmod +x "./docker-entrypoint.sh"

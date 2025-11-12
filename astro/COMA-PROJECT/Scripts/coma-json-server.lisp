@@ -24,12 +24,13 @@
         [-INFILE  infile.json] 
         [-OUTFILE outfile.json] 
         [-WEB-SERVER]
-        [-WEB-HOST \"127.0.0.1\"]
+        [-WEB-HOST \"localhost\"]
         [-WEB-PORT 9999]     
         [-LIST]
         [-BACKTRACE]
         [-ENABLE-CFITSIO-MUTEX]
         [-LISP-REPL]
+        [-LISP-REPL-HOST \"localhost\"]
         [-LISP-REPL-PORT 9944]
 
 where [...] arguments are optional
@@ -37,15 +38,16 @@ where [...] arguments are optional
    -INFILE is the input JSON file, stdin by default
    -OUTFILE is the output JSON file, stdout by default
    -WEB-SERVER, if present, activates a HTTP-based protocol for submitting
-     JSON commands, on WEB-HOST and WEB-PORT, by default 127.0.0.1:9999.
+     JSON commands, on WEB-HOST and WEB-PORT, by default localhost:9999.
      WEB-HOST can be '*' to publish on all network interfaces
    -LIST lists available JSON commands, and quits
    -BACKTRACE means to fail with a backtrace rather than returning error 
      objects, for debugging.
    -ENABLE-CFITSIO-MUTEX turns on a mutex preventing more than one call
     to cfitsio library at once.  It is always on for single-threaded cfitsio.
-   -LISP-REPL opens a SLIME Emacs server on LISP-REPL-PORT for interactive
-    debugging of a running instance of this server.  Port defaults to 9944.
+   -LISP-REPL opens a SLIME Emacs server on LISP-REPL-HOST:LISP-REPL-PORT
+    for interactive debugging of a running instance of this server.
+    Defaults to localhost:9944.
 "
      (file-io:file-minus-dir sbcl-scripting:*script-name*)))
     (sb-ext:exit :code (if err-string 1 0)))
@@ -60,7 +62,7 @@ where [...] arguments are optional
   (multiple-value-bind (named-args un-named-args)
       (sbcl-scripting:get-args
        '(:infile :outfile :backtrace :web-server :web-host :web-port :list
-	 :enable-cfitsio-mutex :lisp-repl :lisp-repl-port))
+	 :enable-cfitsio-mutex :lisp-repl :lisp-repl-host :lisp-repl-port))
 
     ;; increase number of allowed server threads. Perhaps we really need
     ;; webserver to queue tasks differently, as lambda functions
@@ -72,10 +74,11 @@ where [...] arguments are optional
 	  (outfile nil)
 	  (list nil)
 	  (web-server nil)
-	  (web-host "127.0.0.1")
+	  (web-host "localhost")
 	  (web-port 9999)
 	  (backtrace nil)
 	  (lisp-repl nil)
+	  (lisp-repl-host "localhost")
 	  (lisp-repl-port 9944))
       
       (flet ((have-arg (arg)
@@ -102,6 +105,8 @@ where [...] arguments are optional
 	;; launch the LISP REPL if desired
 	(when (zero-arg :lisp-repl)
 	  (setf lisp-repl t)
+	  (when (have-arg :lisp-repl-host)
+	    (setf lisp-repl-host (get-arg :lisp-repl-host)))
 	  (when (have-arg :lisp-repl-port)
 	    (setf lisp-repl-port (ignore-errors
 				  (parse-integer (get-arg :lisp-repl-port)))))
@@ -110,7 +115,8 @@ where [...] arguments are optional
 	    (print-usage-and-quit
 	     (format nil "LISP-REPL-PORT=~A is not in [1,65535]" lisp-repl-port)))
 	  (format t "Creating Lisp/Emacs SLIME connection on port ~A~%" lisp-repl-port)
-	  (swank:create-server :port lisp-repl-port))
+	  (swank:create-server :interface lisp-repl-host
+			       :port lisp-repl-port))
 	
 	;; launch the web server if desired
 	(when (zero-arg :web-server)
