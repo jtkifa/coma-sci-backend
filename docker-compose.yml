@@ -14,7 +14,7 @@ services:
       # web port
       - 5054:5054
       # Lisp listener port (diagnostics)
-      - 127.0.0.1:5055:5055
+      - "127.0.0.1:5055:5055"
     environment:
       - COMA_SERVER_HOST=${COMA_SERVER_HOST}
       - COMA_PORT=5054
