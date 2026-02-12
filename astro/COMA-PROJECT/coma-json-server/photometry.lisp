@@ -1130,12 +1130,13 @@ A full response might look like:
 	       (im (cf:image-section-data imsec)))
 	  ;;
 	  (multiple-value-bind (scadresult err-scad)
-	      (scad:is-object-active
-	       im (float x0/pix 1.0) (float y0/pix 1.0)
-	       :r-profile nr-profile/pix
-	       :n-monte-carlo 100
-	       :fit-center tune-position
-	       :fit-center-n 15)  ;; size of quadratic region for tuning
+	      (ignore-errors
+	       (scad:is-object-active
+		im (float x0/pix 1.0) (float y0/pix 1.0)
+		:r-profile nr-profile/pix
+		:n-monte-carlo 100
+		:fit-center tune-position
+		:fit-center-n 15))  ;; size of quadratic region for tuning
 
 	    (when (not scadresult)
 	      (return-with-error (format nil "ERROR in SIMPLE-COMET-ACTIVITY-DETECTOR: ~A" err-scad)))
