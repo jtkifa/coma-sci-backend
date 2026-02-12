@@ -337,7 +337,7 @@
   
   (terapix:run-sextractor  
    fits
-   :extension (- extension 1) ;; sextractor counting starts at 0
+   :extension extension ;; sextractor package now uses 1-based HDU numbering
    :output nil :display-errors nil  
    :output-catalog sextractor-catalog 
    :gain gain  :deblend-mincont deblend-mincont
@@ -352,8 +352,8 @@
    '(("OBJECTS" "sextractor_OBJECTS.fits")))
   
   
-  (let ((shash (terapix:read-sextractor-catalog 
-		(format nil "~A/~A" (terapix:get-fits-directory fits)
+  (let ((shash (terapix:read-sextractor-catalog  
+		(format nil "~A/~A" (terapix:get-fits-directory fits :extension extension)
 			sextractor-catalog)
 		:extra-columns extra-sextractor-params))
 	match-dist neighbor-mag n-cat neighbor-dist neighbor-index tuned-peak)
