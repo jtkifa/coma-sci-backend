@@ -52,11 +52,10 @@ RUN (ln -s /usr/lib/aarch64-linux-gnu/libfftw3.so /usr/lib/libfftw3.so || \
   ln -s /usr/lib/x86_64-linux-gnu/libfftw3f.so /usr/lib/libfftw3f.so || true) && \
   (ln -s /usr/lib/aarch64-linux-gnu/libfftw3l.so /usr/lib/libfftw3l.so || \
   ln -s /usr/lib/x86_64-linux-gnu/libfftw3l.so /usr/lib/libfftw3l.so || true)
-# Additional libraries from original dynamic-libraries (XPA, WCS)
-RUN apt-get install -y libxpa-dev libxpa1 xpa-tools wcslib-dev libwcs8
-
 # ------------------------------------------------------------------
 # Build and install CFITSIO with reentrant (thread-safe) support
+# TODO: Pin a specific cfitsio version and host a mirror or vendor the tarball.
+#   The NASA HEASARC server (heasarc.gsfc.nasa.gov) can go offline, breaking builds.
 # ------------------------------------------------------------------
 WORKDIR /usr/local/src
 
@@ -68,6 +67,12 @@ RUN wget https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/cfitsio_latest.tar.
   make install && \
   ldconfig && \
   cd /usr/local/src && rm -rf cfitsio cfitsio_latest.tar.gz
+
+# Additional libraries from original dynamic-libraries (XPA, WCS)
+# Note: --no-install-recommends is critical for wcslib-dev. Without it, apt pulls in
+# giza-dev (a Recommends), which replaces pgplot5 with giza shims that produce poor
+# quality PostScript output for image previews.
+RUN apt-get install -y --no-install-recommends libxpa-dev libxpa1 xpa-tools wcslib-dev libwcs8
 
 # ------------------------------------------------------------------
 # Install TERAPIX reqs and other astro sw via astromatic  
