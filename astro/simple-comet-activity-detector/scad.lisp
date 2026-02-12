@@ -116,19 +116,34 @@ at r=0, not the fraction of the light.
 		  (estimate-coma-fraction-and-err-from-fratio frat0 sigma-frat)
 		;;
 		(let* ((flux-nucleus (estimate-nucleus-flux fcoma fwhm :central-flux central-flux))
-		       (flux-coma (- flux-total flux-nucleus)))
-
-		(make-scadresult
-		 :active-p (plusp (- fcoma fcoma-err)) ;; 1 sigma level
-		 :x0 x0 :y0 y0
-		 :fratio frat0
-		 :fratio-err sigma-frat
-		 :coma-frac fcoma
-		 :coma-frac-err fcoma-err
-		 :flux-total flux-total
-		 :flux-coma flux-coma
-		 :flux-nucleus flux-nucleus
-		 :fwhm fwhm))))))))))
+		       (flux-coma (- flux-total flux-nucleus))
+		       ;;
+		       (scadresult
+			 (make-scadresult
+			  :active-p (plusp (- fcoma fcoma-err)) ;; 1 sigma level
+			  :x0 x0 :y0 y0
+			  :fratio frat0
+			  :fratio-err sigma-frat
+			  :coma-frac fcoma
+			  :coma-frac-err fcoma-err
+			  :flux-total flux-total
+			  :flux-coma flux-coma
+			  :flux-nucleus flux-nucleus
+			  :fwhm fwhm)))
+		  
+		  (when (or (float-utils:float-nan-or-infinity-p x0)
+			    (float-utils:float-nan-or-infinity-p y0)
+			    (float-utils:float-nan-or-infinity-p frat0)
+			    (float-utils:float-nan-or-infinity-p sigma-frat)
+			    (float-utils:float-nan-or-infinity-p fcoma)
+			    (float-utils:float-nan-or-infinity-p fcoma-err)
+			    (float-utils:float-nan-or-infinity-p flux-total)
+			    (float-utils:float-nan-or-infinity-p flux-coma)
+			    (float-utils:float-nan-or-infinity-p flux-nucleus)
+			    (float-utils:float-nan-or-infinity-p fwhm))
+		    (error "Invalid numericals  (NaN or InF) in SIMPLE-COMA-ACTIVITY-DETECTOR in result scadresult=~A"
+			   scadresult))
+		  scadresult)))))))))
 
 		      
 			    
