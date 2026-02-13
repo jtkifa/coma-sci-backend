@@ -28,6 +28,9 @@ Request
        // max distance in AU to plot forward and back in time from MJD
        "RHELIO-MAX": 30.0,
 
+       // approximate float values for xyz and MJD, to compress output
+       APPROXIMATE=true,
+
        // orbital size step, relative to distance from sun (approx)
        "DR-FRAC": 0.02
     }
@@ -67,6 +70,7 @@ Returns:
 			   "JPL-ORBIT"))
 	   comet-elem comet-elem-error
 	   univ-elem ;; we use univ elem to avoid issues for hyperbolics
+	   (approximate (get-param "APRPROXIMATE" :default t))
 	   (rhelio-max (get-param "RHELIO-MAX" :default 30d0))
 	   (dr-frac (get-param "DR-FRAC" :default 0.01d0)))
 
@@ -129,6 +133,10 @@ Returns:
 	     "INTERNAL-ORBIT-CALCULATION-ERROR"
 	     (format nil "Internal error computing orbit XYZ: ~A"
 		     %err))))
+
+	;; perform suitable rounding if requested (as by default)
+	(when approximate
+	  (%orbit-xyz-approximate mjd-vec x-vec y-vec z-vec))
 
 	
 	(set-param "MJD" mjd)
@@ -275,3 +283,47 @@ Returns:
        ))))
 
 			   
+;;;;;;;;;;;;;;;;
+
+(defun %orbit-xyz-approximate (mjd-vec x-vec y-vec z-vec)
+  (flet ((dround (x ndigit)
+	   (let* ((xx (float x 1d0))
+		  (xxn (round (* xx (expt 10 ndigit))))
+		  (xout (/ (* 1d0 xxn) (expt 10 ndigit))))
+	     xout)))
+    (loop for i from 0
+	  for mjd across mjd-vec
+	  for x across x-vec and y across y-vec and z across z-vec
+	  ;;
+	  for dmjd = (if (zerop i) 
+			 (- (aref mjd-vec 1) (aref mjd-vec 0))
+			 (- (aref mjd-vec i) (aref mjd-vec (1- i))))
+	  for ndig-mjd = (cond ((< dmjd 0.1)
+				3)
+			       ((< dmjd 10)
+				2)
+			       (t
+				1))
+	  for mjd-approx = (dround mjd ndig-mjd)
+	  ;;
+	  for r = (sqrt (+ (* x x) (* y y) (* z z)))
+	  for ndig-xyz = (cond ((< r 0.1)
+				4)
+			       ((< r 1)
+				3)
+			       ((< r 30)
+				2)
+			       (t
+				1))
+	  for x-approx = (dround x ndig-xyz)
+	  for y-approx = (dround y ndig-xyz)
+	  for z-approx = (dround z ndig-xyz)
+	  ;;
+	  do
+	     (setf (aref mjd-vec i) mjd-approx)
+	     (setf (aref x-vec i) x-approx)
+	     (setf (aref y-vec i) y-approx)
+	     (setf (aref z-vec i) z-approx))))	  
+			       
+			       
+    
