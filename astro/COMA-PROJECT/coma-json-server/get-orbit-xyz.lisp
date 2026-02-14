@@ -70,7 +70,7 @@ Returns:
 			   "JPL-ORBIT"))
 	   comet-elem comet-elem-error
 	   univ-elem ;; we use univ elem to avoid issues for hyperbolics
-	   (approximate (get-param "APRPROXIMATE" :default t))
+	   (approximate (get-param "APRPROXIMATE" :default nil))
 	   (rhelio-max (get-param "RHELIO-MAX" :default 30d0))
 	   (dr-frac (get-param "DR-FRAC" :default 0.01d0)))
 
