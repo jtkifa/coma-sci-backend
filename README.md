@@ -1,6 +1,6 @@
 # COMA Science Backend
 
-Jan Kleyna's COMA Science Backend - A comprehensive astronomical image processing and analysis web service.
+COMA Science Backend - A comprehensive astronomical image processing and analysis web service.
 
 ## Overview
 
