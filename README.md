@@ -161,6 +161,11 @@ The application uses FFI bindings to several C libraries:
 
 These shared libraries (.so/.dylib) must be available in the system library path.
 
+
+### Data Dependencies
+- **REFCAT** - [REFCAT](https://archive.stsci.edu/hlsp/atlas-refcat2) is an all-sky catalog of GAIA astrometry plus ground-survey photometry.  It must be accessible in the file system, with the environment variable `REFCAT_DIR` pointing to the toplevel REFCAT directory.  The format expected is the original packed integer format, not the MAST format. Both compressed (.bz) and uncompressed data are permitted.
+
+
 ## Building
 
 ### Using Docker (Recommended)
