@@ -1,43 +1,64 @@
 
 (in-package imred)
 
-;; return a new vector of bounds 
 
-#+nil ;; no longer necessary because instrument-id:get-trimsec-for-fits is used
 
-(defun get-trimsec-from-ccdsec+biassec (ccdsec biassec)
-  (let* ((xb0 (aref biassec 0))
-	 (xb1 (aref biassec 1))
-	 (yb0 (aref biassec 2))
-	 (yb1 (aref biassec 3))	
-	 (xc0 (aref ccdsec 0))
-	 (xc1 (aref ccdsec 1))
-	 (yc0 (aref ccdsec 2))
-	 (yc1 (aref ccdsec 3))
-	 (x0 xc0) (x1 xc1)
-	 (y0 yc0) (y1 yc1))
-    ;; clip only on edge - unfortunately,
-    ;; we clip the first edge, but not the best
-    ;; possible case in the case of degeneracies,
-    ;; but such degeneracies should not happen (much?)
-    (cond ((< xb0 xc0 xb1) (setf x0 xb1))
-	  ((< yb0 yc0 yb1) (setf y0 yb1))
-	  ((< xb0 xc1 xb1) (setf x1 xb0))
-	  ((< yb0 yc1 yb1) (setf y1 yb0)))
+(defun compute-median-overscan-value (ff overscans)
+  ;; loop over overscans, read them, compute median
+  (let* ((os-arrays ;; list of oversns as single-float arrays
+	   (loop for os in overscans
+		 for fp = (vector (aref os 0) (aref os 2))
+		 for lp = (vector (aref os 1) (aref os 3))
+		 for imsec = (cf:read-image-section ff :fp fp :lp lp :type :float)
+		 for arr = (cf:image-section-data imsec)
+		 collect arr))
+	 (npix-good ;; cound good pixels
+	   (loop with kgood = 0 
+		 for arr in os-arrays
+		 do (loop for i below (array-total-size arr)
+			  for x = (row-major-aref arr i)
+			  when (not (float-utils:single-float-nan-or-infinity-p x))
+			    do (incf kgood))
+		 finally (return kgood)))
+	 (arrtot ;; combined array of good pixels
+	   (make-array npix-good :element-type 'single-float)))
     ;;
-    (vector x0 x1 y0 y1)))
-
+    (when (zerop npix-good)
+      (error "Found zero good pixels in overscan regions ~A in extension ~A of file ~A"
+	     overscans (cf:fits-file-current-hdu-num ff)
+	     (cf:fits-file-filename ff)))
+    ;; collect good pixels
+    (loop with kgood = 0 
+	  for arr in os-arrays
+	  do (loop for i below (array-total-size arr)
+		   for x = (row-major-aref arr i)
+		   when (not (float-utils:single-float-nan-or-infinity-p x))
+		     do (setf (aref arrtot kgood) x)
+			(incf kgood)))
+    ;; and return median
+    (fastmedian:fast-single-float-1d-array-median arrtot)))
+    
+    
 	
-  
-(defun trim-one-extension (ff ff-out extdesc type trimsec)
-  (let* ((fp (vector (aref trimsec 0) (aref trimsec 2)))
-	 (lp (vector (aref trimsec 1) (aref trimsec 3)))
+	
+;; optionally overscan-subtract and optionally trim one extension
+(defun trim/os-one-extension (ff ff-out extdesc write-type
+			   &key trim trimsec overscan-subtract overscans)
+  (let* ((image-size (cf:fits-file-current-image-size ff))
+	 ;; if not trimming, then set the trimsec to whole image
+	 (trimsec* (if trim
+		       trimsec
+		       image-size))
+	 (fp (vector (aref trimsec* 0) (aref trimsec* 2)))
+	 (lp (vector (aref trimsec* 1) (aref trimsec* 3)))
 	 ;; get current extension from input file FF because FF-OUT
 	 ;; may be in indeterminate state
 	 (extnum (cf:fits-file-current-hdu-num ff))
 	 ;; we always read to float because of bzero issue
          (read-type :float)
-	 (write-type (or type (extdesc-image-type extdesc)))
+	 (overscan-value  (if overscan-subtract
+			      (compute-median-overscan-value ff overscans)
+			      0.0))
 	 (imsec
 	  (cf:read-image-section  ff :fp fp :lp lp  :type read-type))
 	 (data (cf:image-section-data imsec))
@@ -47,7 +68,14 @@
 	 (output-image-is-float (member write-type '(:float :double))))
 
     (declare (type (simple-array single-float (* *)) data)
-	     (type single-float bzero bscale))
+	     (type single-float bzero bscale overscan-value))
+
+    (when overscan-subtract
+      (loop for i of-type fixnum below (array-total-size data)
+	    for x = (row-major-aref data i)
+	    when (not (float-utils:single-float-nan-or-infinity-p x))
+	      do (setf (row-major-aref data i)
+		       (- x overscan-value))))
 
     ;; we have to fix the BZERO,BSCALE issue before writing float data
     ;; back, but for float images we just get rid of BZERO,BSCALE
@@ -62,8 +90,8 @@
 		     (/ (- (row-major-aref data i) bzero)
 			bscale))))))
     
-    (cf:add-image-to-fits-file    
-     ff-out write-type   
+    (cf:add-image-to-fits-file      
+     ff-out write-type    
      naxes
      :create-data  data)
 
@@ -80,8 +108,16 @@
     (cf:write-fits-header ff-out "TRIM" 
 			  (format 
 			   nil "~A  ~A" 
-			   (sec-to-string trimsec)
+			   (sec-to-string trimsec*)
 			   (astro-time:ut-to-date-string (get-universal-time))))
+
+    (when overscan-subtract
+      (cf:write-fits-header ff-out "IMRED.OVERSCANSUBTRACT" t
+			    :comment "IMRED subtracted one median overscan value")
+      (cf:write-fits-header ff-out "IMRED.OVERSCANVALUE"
+			    overscan-value
+			    :comment "Single overscan value used"))
+    
 
     (instrument-id:set-standard-header ff-out
 				       :trimmed "YES" 
@@ -108,7 +144,7 @@
       
       
     
-    (cf:write-fits-header ff-out "TRIMSEC" (sec-to-string trimsec))
+    (when trim (cf:write-fits-header ff-out "TRIMSEC" (sec-to-string trimsec)))
 
     #+nil ;; no longer preserve ccdsec and biassec
     (progn
@@ -132,19 +168,25 @@
     
     
 
+ 
 
+(defun trim/os-image (fits fits-out reduction-plan
+		      &key
+			(write-type :auto)
+			(if-exists :error))
+  "If REDUCTION-PLAN-OVERSCAN-SUBTRACT is true, then do a simple overscan subtraction, using
+the median pixel value.
 
-(defun trim-image (fits fits-out
-		   &key (type nil)
-		     (trimsec nil)				   
-		     (if-exists :error))
-  "Trim an image extension by extension, keeping only the part inside
-CCDSEC, and removing DATASEC and BIASEC headers, and put in TRIM
-header.  IF-EXISTS is :ERROR or SUPERSEDE.
+If REDUCTION-PLAN-TRIM is true, then trim the image.
 
-TRIMSEC should be a vector, or a string to use a specific header, or
-NIL to use the default trimsec from the generated EXT-DESC, from
-instrument-id:get-trimsec-for-fits
+The TRIMSEC and OVERSCANS is obtained from the REDUCTION-PLAN.
+
+Overscan subtraction is very simple using just the medians of the
+overscan regions.
+
+WRITE-TYPE is the output image type, by default :AUTO, which means
+to use the EXTDESC type unless we are overscan subtracting, in which
+case use float.
 
 It may not be possible to read and write a SHORT image because of
 BZERO issues."
@@ -155,9 +197,11 @@ BZERO issues."
 	(error "Output file ~A exists" fits-out)
 	(delete-file fits-out)))
 
-  (let ((fits (fullfile fits))
+  (let ((trim (reduction-plan-trim reduction-plan))
+	(overscan-subtract (reduction-plan-overscan-subtract reduction-plan))
+	(fits (fullfile fits))
 	(fits-out (fullfile fits-out :create t :delete t))) ;; see fullfile in utils.lisp
-	
+    
     (when (equal fits fits-out)
       (error "output file ~A would overwrite input file ~A" fits-out fits))
 
@@ -169,15 +213,27 @@ BZERO issues."
 	    with extdesc-list = (build-extdesc-list-for-fits fits)
 	    for ihdu from 1 to (cf:fits-file-num-hdus ff)
 	    for extdesc in extdesc-list
+	    ;; for the write type, force FLOAT if overscan subtract 
+	    for write-type-final = (cond ((eq write-type :auto)
+					  (if overscan-subtract
+					      :float
+					      (extdesc-image-type extdesc)))
+					 (t
+					  write-type))
 	    do 
 	       (cf:move-to-extension ff ihdu)
 	       (cond 
 		 ;; just copy any non-image extension
 		 ((not (extdesc-reduce-p extdesc))
 		  (cfitsio:copy-current-extension ff ff-out))
+		 ;; is if reducible, get overscans and trimsec if needed
+		 ;; and process 
 		 (t
-		  (trim-one-extension ff ff-out extdesc type
-				      (or
-				       (%get-trimsec-at-extension ff trimsec ihdu)
-				       (extdesc-trimsec extdesc)))))))))))
+		  (trim/os-one-extension 
+		   ff ff-out extdesc write-type-final
+		   :trim trim
+		   :trimsec (extdesc-trimsec extdesc)
+		   :overscan-subtract overscan-subtract
+		   :overscans (extdesc-overscans extdesc)
+		   )))))))))
 	   

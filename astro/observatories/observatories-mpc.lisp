@@ -30,7 +30,7 @@
     (values rho-cos-phi rho-sin-phi)))
     
 
-;; iterative solution 
+;; iterative solution - ALT is GEODETIC, not GEOCENTRIC
 (defun %parallax-to-lat-alt (rho-cos-phi rho-sin-phi)
   (let* ((lat0 (atan rho-sin-phi rho-cos-phi))
 	 (rho0 (sqrt (+ (* rho-sin-phi rho-sin-phi)

@@ -16,7 +16,9 @@
 (defparameter *psps-stackpsf-field-ids*
   '((:id "objID")
     (:ra  "raStack") (:dec "decStack")
-    (:ra-err "raStackErr") (:dec-err "decStackErr")
+    (:ra-err "raStackErr") (:dec-err "decStackErr") ;; arcsec
+    (:epoch-mean "epochMean") ;; mean epoch and baseline for proper motion
+    (:pmra  "pmra")       (:pmdec "pmdec")  ;; not sure if proper motion returned for all datasets
     (:g  "gStackPSFMag") (:g-err "gStackPSFMagErr")
     (:r  "rStackPSFMag") (:r-err "rStackPSFMagErr")
     (:i  "iStackPSFMag") (:i-err "iStackPSFMagErr")
@@ -28,7 +30,9 @@
 (defparameter *psps-meanpsf-field-ids*
   '((:id "objID")
     (:ra  "raMean") (:dec "decMean")
-    (:ra-err "raMeanErr") (:dec-err "decMeanErr")
+    (:ra-err "raMeanErr") (:dec-err "decMeanErr")  ;; arcsec
+    (:pmra  "pmra")       (:pmdec "pmdec") ;; proper motion returned for SOME stars here (mas/yr)
+    (:epoch-mean "epochMean") ;; mean epoch and baseline for proper motion
     (:g  "gMeanPSFMag") (:g-err "gMeanPSFMagErr")
     (:r  "rMeanPSFMag") (:r-err "rMeanPSFMagErr")
     (:i  "iMeanPSFMag") (:i-err "iMeanPSFMagErr")
@@ -38,7 +42,9 @@
 (defparameter *psps-stackkron-field-ids*
   '((:id "objID")
     (:ra  "raStack") (:dec "decStack")
-    (:ra-err "raStackErr") (:dec-err "decStackErr")
+    (:ra-err "raStackErr") (:dec-err "decStackErr")  ;; arcsec
+    (:pmra  "pmra")       (:pmdec "pmdec") ;; not sure if proper motion returned for all datasets
+    (:epoch-mean "epochMean") ;; mean epoch and baseline for proper motion
     (:g  "gStackKronMag") (:g-err "gStackKronMagErr")
     (:r  "rStackKronMag") (:r-err "rStackKronMagErr")
     (:i  "iStackKronMag") (:i-err "iStackKronMagErr")
@@ -49,7 +55,9 @@
 (defparameter *psps-meankron-field-ids*
   '((:id "objID")
     (:ra  "raMean") (:dec "decMean")
-    (:ra-err "raMeanErr") (:dec-err "decMeanErr")
+    (:ra-err "raMeanErr") (:dec-err "decMeanErr")  ;; arcsec
+    (:pmra  "pmra")       (:pmdec "pmdec") ;; not sure if proper motion returned for all datasets
+    (:epoch-mean "epochMean") ;; mean epoch and baseline for proper motion
     (:g  "gMeanKronMag") (:g-err "gMeanKronMagErr")
     (:r  "rMeanKronMag") (:r-err "rMeanKronMagErr")
     (:i  "iMeanKronMag") (:i-err "iMeanKronMagErr")
@@ -278,6 +286,12 @@
       (setf fields
 	    (append fields '(:ndet :r-psf-minus-kron :g-psf-minus-kron)))
 
+      ;; get rid of spaces as designators of no-valid-proper motion, and replace
+      ;; with *invalid-dbl-value
+      (%badvalify-field-dbl-vector :pmra fields output-vecs)
+      (%badvalify-field-dbl-vector :pmdec fields output-vecs)
+	
+
       ;; convert all output vecs to float types
       (setf output-vecs
 	    (map 'vector
@@ -381,15 +395,58 @@
 		    (< ndet *ps1-nstars-min*))))))
 	
 
-(defmethod object-ra-err ((acat psps-3pi-catalog) i)
-  (max
-   (/ (get-value acat :ra-err i) 3600d0)
-   #.(/ 0.1d0 3600))) ;; impose minimum position error
 
+(defmethod object-ra-dec ((acat psps-3pi-catalog) (i fixnum)  &key mjd)
+  (declare (ignorable mjd))
+  (let* ((ra  (get-value acat :ra i))
+	 (dec (get-value acat :dec i))
+	 (dra/dt (get-value acat :pmra i))   ;; mas/yr
+	 (ddec/dt (get-value acat :pmdec i)) ;; mas/yr
+	 (epoch (get-value acat :epoch-mean i)) ;; different epoch for each obj
+	 ;; not every detection has a proper motion
+	 (good-proper-motion
+	   (and (not (invalid-value-p dra/dt))
+		(not (invalid-value-p ddec/dt))))
+	 (adjust-by-pm (and mjd epoch good-proper-motion
+			    t))) ;; final T to have T/NIL for return
+
+    ;; shift to epoch mjd
+    (when adjust-by-pm
+      (let* ((years-difference (/ (- mjd epoch) 365.25d0))
+	     (delta-ra  (* years-difference 1d-3 dra/dt))
+	     (delta-dec (* years-difference 1d-3 ddec/dt)))
+	(multiple-value-setq (ra dec)
+	  (astro-coords:sky-angles-slew ra dec delta-ra delta-dec :units :arcsec))))
+    
+    (values ra dec 
+	    (object-ra-err  acat i)
+	    (object-dec-err  acat i)
+	    adjust-by-pm))) ;; NIL means 'no adjustment by MJD made'
+
+
+
+
+;; PS1 stsci returns arcsec errors, but -999 means 'bad value'
+(defmethod object-ra-err ((acat psps-3pi-catalog) i)
+  (let ((val (get-value acat :ra-err i)))
+    (if (minusp val)   ;; unknown error becomes 1 arcsec
+	(setf val 1d0))
+    (max val  0.010))) ;; impose 10 mas error floor
+;;
 (defmethod object-dec-err ((acat psps-3pi-catalog) i)
-  (max
-   (/ (get-value acat :dec-err i) 3600d0)
-   #.(/ 0.1d0 3600)))
+  (let ((val (get-value acat :dec-err i)))
+    (if (minusp val)   ;; unknown error becomes 1 arcsec
+	(setf val 1d0))
+    (max val  0.010))) ;; impose 10 mas error floor
+
+;; PS returns mas/yr
+(defmethod object-proper-motions ((acat psps-3pi-catalog) i)
+  (let ((pmra  (get-value acat :pmra i))
+	(pmdec (get-value acat :pmdec i)))
+    (if (and (floatp pmra)
+	     (floatp pmdec))
+	(values pmra pmdec)
+	(values nil nil))))
 
 
 ;; a rough guess of whether an object is a star or galaxy using the difference

@@ -17,7 +17,7 @@
    *error-output*
    "Invoke as ~%  ~A --foo some_foo --bar/--no-bar thing1 thing2~%~%"
    sbcl-scripting:*script-name*)
-  (sb-ext:exit :code 1))
+  (sb-ext:exit :code (if err-string 1 0)))
 
 (defun main ()
   (multiple-value-bind (named-args un-named-args)

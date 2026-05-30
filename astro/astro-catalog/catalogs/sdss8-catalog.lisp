@@ -19,11 +19,11 @@
       (ignore-errors
        (run-vizquery-and-parse/multisites
 	ra-deg dec-deg (* radius-deg 60.0) catalog
-	'(("SDSS8" :id string "") ;; WARNING - ID is not unique
-	  ;;	  ("RAJ2000" :ra double-float 1d99) ;; did this change?
-	  ;;	  ("DEJ2000" :dec double-float 1d99)
-	  ("RA_ICRS" :ra double-float 1d99)
-	  ("DE_ICRS" :dec double-float 1d99)
+	`(("SDSS8" :id string "") ;; WARNING - ID is not unique
+	  ;;	  ("RAJ2000" :ra double-float *invalid-dbl-value*) ;; did this change?
+	  ;;	  ("DEJ2000" :dec double-float *invalid-dbl-value*)
+	  ("RA_ICRS" :ra double-float ,*invalid-dbl-value*)
+	  ("DE_ICRS" :dec double-float ,*invalid-dbl-value*)
 	  ("umag"   :u double-float 0d0)
 	  ("e_umag" :u-err double-float 0d0)
 	  ("gmag"   :g double-float 0d0)

@@ -43,6 +43,8 @@ use terapix for easy astrometry of simple images
        (position-maxerr 2.0) ;; arcmin
        (distort-degrees 3)
        (crossid-radius  3.0)
+       (flags-mask #x00fc)   ;; for scamp: 00fc is default mask, keeps deblends, rejects other glitches
+       (allow-saturated-stars nil) ;; set 4s bit of flag mask
        (file-suffix "WCSFIT") ;; suffix for internal files
        (display-errors nil))
        
@@ -61,7 +63,8 @@ might be (a closure of) TRAILED-IMAGE-ASTROMETRY:IMPROVE-SEXTRACTOR-CATALOG
 
 Return (VALUES WCS NSTARS RMS NSTARS-HI-SN RMS-HI-SN FWHM)
 
-EXTENSION is zero-based, not 1-based like cfitsio.
+EXTENSION is [1]-based, not [0]-based like Astrometric and Iraf.  This
+changed in 2025/12.
 
 The FWHM is returned even for failure, so it can be used to adjust subsequent
 WCS fits."
@@ -77,6 +80,10 @@ WCS fits."
 	 nstars rms-vec nstars-hi-sn rms-vec-hi-sn
 	 rms rms-hi-sn
 	 fwhm ;; estimate fwhm while we're at it
+	 ;; fix flags-mask to accept flags-mas
+	 (flags-mask-fixed (if allow-saturated-stars
+			       (logandc2 flags-mask 4) ;; set 4s bit to 0
+			       flags-mask))
 	 ;; use basenames because we will add either .cat or .head
 	 (extension-tag (if (not extension) ;; the extension tag denotes the extension
 			    ""
@@ -85,23 +92,23 @@ WCS fits."
 	 (cat-basename-fixed (format nil "sex_~A~A_FIXED" file-suffix extension-tag))
 	 (cat-basename-used cat-basename) ;; the one we use
 	 sextractor-catalog
-	 wcs-list wcs dir checkimage-types-and-names
+	 wcs-list wcs workdir checkimage-types-and-names
 	 ldac-file ;; if we write catalog to ldac file
+	 (extension-to-use  (or extension
+				   (ignore-errors ;; could be non-instrument-id fits
+				    (instrument-id:get-image-extension-for-onechip-fits
+				      fits-file))))
 	 )
     
-    (setf dir (ensure-fits-directory fits-file))
+    (setf workdir (ensure-fits-directory fits-file :extension extension-to-use))
     (setf checkimage-types-and-names
 	  (if make-object-checkimage
 	      (list (list "OBJECTS"
-			  (format nil "~A/checkimage_object_~A.fits" dir file-suffix)))
+			  (format nil "~A/checkimage_object_~A.fits" workdir file-suffix)))
 	      nil))
-    ;;
+    ;; 
     (run-sextractor fits-file
-		    :extension (or extension
-				   (ignore-errors ;; could be non-instrument-id fits
-				    (1- ;; sextractor takes zero-based extensions
-				     (instrument-id:get-image-extension-for-onechip-fits
-				      fits-file))))
+		    :extension extension-to-use
 		    :conf-suffix (format nil "_~A" file-suffix)
 		    :output-catalog (format nil "~A.cat" cat-basename)
 		    :md5-avoid-rerun md5-avoid-rerun
@@ -117,14 +124,14 @@ WCS fits."
 		    :display-errors display-errors)
 
     (setf sextractor-catalog (format nil "~A/~A.cat"
-					  dir cat-basename))
+					  workdir cat-basename))
     (when catalog-postproc-func
       (setf cat-basename-used cat-basename-fixed)
       (setf sextractor-catalog
 	    (funcall catalog-postproc-func
 		     sextractor-catalog
 		     fits-file
-		     (format nil "~A/~A.cat" dir cat-basename-fixed))))
+		     (format nil "~A/~A.cat" workdir cat-basename-fixed))))
 
 
     
@@ -142,12 +149,16 @@ WCS fits."
     ;; if we are using an intermediate ldac-file, then write it to a file
     (when create-ldac-file
       (setf ldac-file
-	    (%generate-ldac-catalog-file-for-fits fits-file astref-catalog))) 
+	    (%generate-ldac-catalog-file-for-fits
+	     fits-file
+	     astref-catalog 
+	     :extension extension-to-use))) 
     
     ;; 
     (setf xml-list
 	  (run-scamp   
 	   fits-file
+	   :extension extension-to-use
 	   :xml-filename (format nil "scamp_~A.xml" file-suffix)
 	   ;; use either the orig or fixed catalog
 	   :sextractor-catalog-base cat-basename-used
@@ -167,6 +178,7 @@ WCS fits."
 	   :fwhm-threshold-low fwhm-threshold-low
 	   :fwhm-threshold-high fwhm-threshold-high
 	   :distort-degrees distort-degrees
+	   :flags-mask flags-mask-fixed
 	   :match-flipped (if match-flipped "Y" "N")
 	   :display-errors display-errors))
     
@@ -206,7 +218,7 @@ WCS fits."
 
     (setf wcs-list
 	  (parse-scamp-wcs-from-headfile
-	   (concatenate 'string (get-fits-directory fits-file)
+	   (concatenate 'string workdir
 			(format nil "/~A.head" cat-basename-used))))
 	  
   (when (not wcs-list)
@@ -270,32 +282,35 @@ WCS fits."
   (values wcs nstars rms nstars-hi-sn rms-hi-sn fwhm)))
 
 
-(defun restore-original-wcs-headers (fits-file)
-  "Restore the original headers, with an X suffix"
-  (cf:with-open-fits-file (fits-file ff :mode :io)
+(defun restore-original-wcs-headers (fits-file &key extension)
+  "Restore the original headers, with an x suffix. If EXTENSION is NIL,
+do all extensions where backups exist; if EXTENSION is given, limit
+restoration to this extension."
+  (cf:maybe-with-open-fits-file (fits-file ff :mode :io)
     (loop for iext from 1 to (cf:fits-file-num-hdus ff)
 	  do (cf:move-to-extension ff iext)
-	     (when (= (length (cf:fits-file-current-image-size ff)) 2)
-	       (return))
-	  finally ;; no image extension? HOW?
-		  (error "Could not find an image extension to write wcs."))
-    ;; if this isn't the first time running wcsfit, don't back up so
-      ;; we preserve original values
-    (when (cf:read-fits-header ff "WCSFIT")
-      (loop for header in '("WCSFIT" "ASTRMTHD" "WCSFIT.CATALOG" "WCSFITOK"
-			    "NASTRON"  "RMSFIT")
-	    do
-	       (cf:delete-fits-header ff header)))
-      
-      (loop
-	;;
-	for header in '("CTYPE1" "CTYPE2" "CRVAL1" "CRVAL2" 
-			"CRPIX1" "CRPIX2" "CD1_1" "CD1_2" 
-			"CD2_1" "CD2_2" "EQUINOX")
-	for bak-header = (concatenate 'string "x" header)
-	for bak-value = (cf:read-fits-header ff bak-header)
-	when bak-value
-	  do (cf:write-fits-header ff header bak-value))))
+	     (when (and (= (length (cf:fits-file-current-image-size ff)) 2)
+			;; limit to extension if given
+			(or (not extension)
+			    (eql iext extension)))
+	       ;; if this isn't the first time running wcsfit, don't back up so
+	       ;; we preserve original values
+	       (when (cf:read-fits-header ff "WCSFIT")
+		 (loop for header in '("WCSFIT" "ASTRMTHD" "WCSFIT.CATALOG" "WCSFITOK"
+				       "NASTRON"  "RMSFIT")
+		       do
+			  (cf:delete-fits-header ff header)))
+	       
+	       (loop
+		 ;;
+		 for header in '("CTYPE1" "CTYPE2" "CRVAL1" "CRVAL2" 
+				 "CRPIX1" "CRPIX2" "CD1_1" "CD1_2" 
+				 "CD2_1" "CD2_2" "EQUINOX")
+		 for bak-header = (concatenate 'string "x" header)
+		 for bak-value = (cf:read-fits-header ff bak-header)
+		 when bak-value
+		   do (cf:write-fits-header ff header bak-value
+					    :comment "backup of original header"))))))
 
 
 
@@ -329,6 +344,8 @@ WCS fits."
        (posangle-maxerr 5.0)
        (position-maxerr 2.0) ;; arcmin
        (crossid-radius  3.0)
+       (flags-mask #x00fc) ;; default value for scamp
+       (allow-saturated-stars nil)
        ;;
        ;; run sextractor and scamp verbosely
        (file-suffix "WCSFIT")
@@ -376,6 +393,8 @@ Return (VALUES WCS NSTARS RMS NSTARS-HI-SN RMS-HI-SN)"
     :display-errors display-errors
     ;; this makes it linear
     :distort-degrees 1
+    :flags-mask flags-mask
+    :allow-saturated-stars allow-saturated-stars
     ))
 
 
@@ -394,24 +413,25 @@ Return (VALUES WCS NSTARS RMS NSTARS-HI-SN RMS-HI-SN)"
 	
 	 
 
-(defun %generate-ldac-catalog-file-for-fits (fits astref-catalog-type)
-  (let ((wcs (or (cf:read-wcs fits :extension (instrument-id:get-image-extension-for-onechip-fits
-					       fits))
-		 (instrument-id:get-initial-wcs-for-fits fits)
-		 (error "Could not get initial WCS for FITS ~A to generate ldac catalog" fits)))
-	(mjd (instrument-id:get-mjd-mid-for-fits fits))
-	(naxis1 (cf:read-fits-header
-		 fits "NAXIS1"
-		 :extension (instrument-id:get-image-extension-for-onechip-fits fits)))
-		(naxis2 (cf:read-fits-header
-		 fits "NAXIS2"
-		 :extension (instrument-id:get-image-extension-for-onechip-fits fits)))
-	(radius/deg 0d0)
-	;; catalog type according to astref-catalog package
-	(catalog-type
-	  (or (%get-astro-catalog-type-for-scamp-key astref-catalog-type)
-	      (error "Cannot create an astro-catalog catalog from SCAMP catalog of type ~A"
-		     astref-catalog-type))))
+(defun %generate-ldac-catalog-file-for-fits (fits astref-catalog-type &key extension)
+  (let* ((ext (or extension (instrument-id:get-image-extension-for-onechip-fits fits)))
+	 (wcs (or (cf:read-wcs fits :extension ext)
+		  (instrument-id:get-initial-wcs-for-fits fits :extension ext)
+		  (error "Could not get initial WCS for FITS ~A to generate ldac catalog" fits)))
+	 (mjd (instrument-id:get-mjd-mid-for-fits fits))
+	 
+	 (naxis1 (cf:read-fits-header
+		  fits "NAXIS1"
+		  :extension ext))
+	 (naxis2 (cf:read-fits-header
+		  fits "NAXIS2"
+		  :extension ext))
+	 (radius/deg 0d0)
+	 ;; catalog type according to astref-catalog package
+	 (catalog-type
+	   (or (%get-astro-catalog-type-for-scamp-key astref-catalog-type)
+	       (error "Cannot create an astro-catalog catalog from SCAMP catalog of type ~A"
+		      astref-catalog-type))))
     ;;
     (multiple-value-bind (ra0 dec0)
 	(wcs:wcs-convert-pix-xy-to-ra-dec wcs (* naxis1 0.5) (* naxis2 0.5))
@@ -424,7 +444,8 @@ Return (VALUES WCS NSTARS RMS NSTARS-HI-SN RMS-HI-SN)"
      (let ((catalog (astro-catalog:get-cached-catalog-object ra0 dec0 radius/deg
 							      catalog-type))
 	   (file (format nil "~A/astref-~A.cat"
-			 (get-fits-directory fits :if-does-not-exist :create)
+			 (get-fits-directory fits :if-does-not-exist :create
+					     :extension extension)
 			 astref-catalog-type)))
        (astro-catalog:write-catalog-to-fits-ldac
 	catalog file

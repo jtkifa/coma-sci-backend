@@ -2,11 +2,10 @@
 
 (in-package small-body-identify)
 
-;; Commented out for Docker build - lparallel will be initialized at runtime instead
 ;; set four worker threads if a kernel is not set
-;; (eval-when (:load-toplevel)
-;;   (when (not lparallel:*kernel*)
-;;     (setf lparallel:*kernel* (lparallel:make-kernel 4))))
+(eval-when (:load-toplevel)
+  (when (not lparallel:*kernel*)
+    (setf lparallel:*kernel* (lparallel:make-kernel 4))))
 
 
 (defstruct candidate
@@ -365,6 +364,12 @@
        (orbit-element-vector *orbit-element-vector*))
   (declare (type double-float ra dec mjdtt)
 	   (type sbid-snap snap))
+
+  ;; it's possible that orbits weren't initialized if starting with 
+  ;; astorb init that doesn't load data at compile time
+  (initialize-orbital-elements) ;; won't do anything if *orbit-element-vector*
+                                ;; is already set
+  
   (let ((d-mjd (abs (- mjdtt (sbid-snap-mjdtt snap))))
 	(iobj-list nil))
     ;; with search radii scaling with the change in mjd D-MJD from the

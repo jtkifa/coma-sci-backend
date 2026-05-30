@@ -39,7 +39,7 @@ The main routine is
     sdss7-catalog
     sdss8-catalog
     sdss9-catalog
-    gaia-dr1-catalog
+    gaia-dr1-catalog gaia-dr2-catalog gaia-dr3-catalog
     refcat-catalog
     psps-3pi-mean-psf-mag-catalog
     psps-3pi-stack-psf-mag-catalog
@@ -91,8 +91,17 @@ The main routine is
      (read-2mass-point-source-catalog-object 
       ra dec radius :method :vizquery))
     ;;
+    ;; different GAIA releases
     ((eq catalog-type 'gaia-dr1-catalog)
      (read-gaia-dr1-catalog-object
+      ra dec radius :method :vizquery))
+    
+    ((eq catalog-type 'gaia-dr2-catalog)
+     (read-gaia-dr2-catalog-object
+      ra dec radius :method :vizquery))
+    
+    ((eq catalog-type 'gaia-dr3-catalog)
+     (read-gaia-dr3-catalog-object
       ra dec radius :method :vizquery))
     ;;
     ((eq catalog-type 'refcat-catalog)

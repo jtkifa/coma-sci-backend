@@ -11,9 +11,9 @@
       (ignore-errors
        (run-vizquery-and-parse/multisites ra-deg dec-deg
 					  (* radius-deg 60.0) "2MASS-PSC"
-				'(("2MASS" :id string "")
-				  ("RAJ2000" :ra double-float 1d99)
-				  ("DEJ2000" :dec double-float 1d99)
+				`(("2MASS" :id string "")
+				  ("RAJ2000" :ra double-float ,*invalid-dbl-value*)
+				  ("DEJ2000" :dec double-float ,*invalid-dbl-value*)
 				  ("Jmag" :j  double-float 0d0) 
 				  ("e_Jmag" :j-err  double-float 0d0)
 				  ("Hmag" :h  double-float 0d0) 

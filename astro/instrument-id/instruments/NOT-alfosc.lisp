@@ -37,20 +37,31 @@
 (defmethod get-standard-filter-for-instrument ((inst not-alfosc) fits-file)
   (let* ((filter (%gethead-or-error fits-file "ALFLTNM")))
     (flet ((filter-starts-with (str)
-	     (eql 0 (search str filter))))
-      (cond ((filter-starts-with "U_Bes") :uj)
-	    ((filter-starts-with "B_Bes") :bj)
-	    ((filter-starts-with "V_Bes") :vj)
-	    ((filter-starts-with "R_Bes") :rc)
-	    ((filter-starts-with "I_") :ic) ;; guess this is normal I?  who knows!
-	    ;;
-	    ((filter-starts-with "u'_SDSS") :usdss)
-	    ((filter-starts-with "g'_SDSS") :gsdss)
-	    ((filter-starts-with "r'_SDSS") :rsdss)
-	    ((filter-starts-with "i'_SDSS") :isdss)
-	    ((filter-starts-with "z'_SDSS") :zsdss)
-	    ;;
-	    ))))
+	     (eql 0 (search str filter)))
+	   (filter-is (str)
+	     (string= filter str)))
+      (cond
+	;; non-string-filter
+	((not (stringp filter))
+	 nil)
+	;;
+	((filter-starts-with "U_Bes") :uj)
+	((filter-starts-with "B_Bes") :bj)
+	((filter-starts-with "V_Bes") :vj)
+	((filter-starts-with "R_Bes") :rc)
+	((filter-starts-with "I_") :ic) ;; guess this is normal I?  who knows!
+	;;
+	((filter-starts-with "u'_SDSS") :usdss)
+	((filter-starts-with "g'_SDSS") :gsdss)
+	((filter-starts-with "r'_SDSS") :rsdss)
+	((filter-starts-with "i'_SDSS") :isdss)
+	((filter-starts-with "z'_SDSS") :zsdss)
+	
+	;; a set of interference filters
+	((filter-starts-with "i_int") :isdss) ;; various
+	((filter-starts-with "I_int") :ic) 
+	;;
+	))))
 	    
 
 ;; generic version OK

@@ -37,12 +37,13 @@ returned is the distance from RA,DEC given and object position."
 	    do
 	       (if (not list-output)
 		   (format t 
-			   "~15A ~A   ~A   ~4,1F      ~,2f  ~,2F  ~,2F~%"
+			   "~,3D ~15A ~A   ~A   ~4,1F      ~,2f  ~,2F  ~,2F~%"
+			   i
 			   id
 			   (ra-dec:deg->hms-string rai)
 			   (ra-dec:deg->dms-string deci)
 			   dist gmag rmag imag)
-		   (push `((:id . ,id) (:ra . ,rai) (:dec . ,deci) (:dist . ,dist)
+		   (push `((:id . ,id) (index . ,i) (:ra . ,rai) (:dec . ,deci) (:dist . ,dist)
 			   (:g . ,gmag) (:r . ,rmag) (:i . ,imag))
 			 outlist)))
     (when outlist
@@ -51,3 +52,36 @@ returned is the distance from RA,DEC given and object position."
 			  :key 
 			  (lambda (al) (cdr (assoc :dist al))))))
     outlist))
+
+
+(defun describe-object-at-index (cat index &key (stream *standard-output*))
+  (declare (type astro-catalog cat)
+	   (type (integer 0) index))
+  (when (not (< index (astro-catalog-n cat)))
+    (error "Index ~A is out of range for ~A" index cat))
+  (format stream "ID:               ~A~%" (astro-catalog:get-value cat :id index))
+  (format stream " RA,DEC (deg):    ~,5F  ~,5F~%"
+	  (astro-catalog:get-value cat :ra index)
+	  (astro-catalog:get-value cat :dec index))
+  (format stream " RA,DEC:          ~A  ~A~%"
+	  (ra-dec:deg->hms-string (astro-catalog:get-value cat :ra index))
+	  (ra-dec:deg->dms-string (astro-catalog:get-value cat :dec index)))
+  (format stream " RA-DEC-ERR [mas]: ~,4F  ~,4F~%"
+	  (* 1000 (object-ra-err cat index))
+	  (* 1000 (object-dec-err cat index)))
+  (multiple-value-bind (pmra pmdec)
+      (object-proper-motions cat index)
+    (format stream " Motion [mas/hr]: ~,4F  ~,4F~%" pmra pmdec))
+  (format stream " Object Type   :  ~A~%" (object-type cat index))
+  (format stream " Magnitudes and errors:~%")
+  (loop for mag-name in (available-mags cat)
+	do (multiple-value-bind (mag emag)
+	       (object-mag cat mag-name index) 
+	     (format stream "    ~A ~,3F  +/- ~,3F~%"
+		   mag-name mag emag))))
+	
+  
+  
+  
+  
+  

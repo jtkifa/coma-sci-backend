@@ -6,7 +6,8 @@
   (obscode nil)  ;; a string - has to be inserted by hand
   (generic nil)  ;; this is the GENERIC identifier for this obs-code - trumps others
   wlongitude  ;; WEST longitude (the IRAF convention, unfortunately)
-  latitude  ;; north lat
+  latitude  ;; north lat (GEODETIC - ellipse based - not GEOCENTRIC - which is what
+            ;; is generally used, eg by SLALIB)
   altitude   ;; above sea level in meters
   timezone)   ;; timezone 
 

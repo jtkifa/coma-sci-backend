@@ -50,7 +50,7 @@
    #:univ-elem  #:make-univ-elem #:univ-elem-p 
    #:univ-elem-id #:univ-elem-velem #:univ-elem-data
    ;;
-   #:perturb-univeral-elem
+   #:perturb-universal-elem
    #:perturb-comet-elem
    #:compute-pv-from-comet-elem
    #:compute-pv-from-comet-elem-for-observatory

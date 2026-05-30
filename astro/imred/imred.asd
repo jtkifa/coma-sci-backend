@@ -3,7 +3,7 @@
   :depends-on (imutils instrument-id
 		       wcs cfitsio astro-time random cl-fad file-io float-utils
 		       logger stats fastmedian ra-dec suprime-cam-fix shellsort-jk
-		       hypersuprime-cam-fix gmos-proc)
+		       hypersuprime-cam-fix gmos-proc emmi-susi-proc)
   :components
   ((:file "imred-package" :depends-on ())
    (:file "utils"  :depends-on ("imred-package"))
@@ -44,5 +44,6 @@
 		  (:file "reduction-plan-wht-acam")
 		  (:file "reduction-plan-cfccd-on-ctio1.5m")
 		  (:file "reduction-plan-keck-lris")
+		  (:file "reduction-plan-eso-ntt-emmi+susi")
 		  ))))
                            

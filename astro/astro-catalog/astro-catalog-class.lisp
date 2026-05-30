@@ -79,14 +79,14 @@ magnitude returns NIL instead of throwing an error."))
 
 (defgeneric object-ra  (astro-catalog i &key mjd)
   (:documentation
-   "Return the RA of object I, and uncertainty as 2nd value (or
+   "Return the RA of object I, and uncertainty in arcsec as 2nd value (or
    DEFAULT-POSIITON-ERROR if unknown).  If MJD is set, and the catalog
    supports proper motions, adjust for proper motion to MJD.  The
    third value is T/NIL depending on whether an adjustment by MJD was
    made."))
 (defgeneric object-dec  (astro-catalog i &key mjd)
   (:documentation
-   "Return the Dec of object I, and uncertainty as 2nd value (or
+   "Return the Dec of object I, and uncertainty in arcsec as 2nd value (or
   DEFAULT-POSITION-ERROR if unknown). If MJD is set, and the catalog
   supports proper motions, adjust for proper motion to MJD.  The third
   value is T/NIL depending on whether an adjustment by MJD was
@@ -98,9 +98,9 @@ magnitude returns NIL instead of throwing an error."))
    object I in ASTRO-CATALOG."))
 
 (defgeneric object-ra-err  (astro-catalog i)
-   (:documentation "Return the RA error of object I in deg, or possibly a default uncertainty"))
+   (:documentation "Return the RA error of object I in ARCSEC, or possibly a default uncertainty"))
 (defgeneric object-dec-err  (astro-catalog i)
-  (:documentation "Return the Dec error of object I in deg, or possibly a default uncertainty"))
+  (:documentation "Return the Dec error of object I in ARCSEC, or possibly a default uncertainty"))
 
 (defgeneric object-proper-motions (astro-catalog i)
   (:documentation "Return (values d[RA*cos(Dec)]/dt dDec/dt) in mas/yr, or NIL if not 
@@ -158,7 +158,7 @@ defined."))
 
 (defmethod object-type ((acat astro-catalog) (i fixnum))
   (declare (ignore acat i))
-  :uknown)
+  :unknown)
 
 ;; get the object ID, and NIL if undefined for this catalog
 (defmethod object-id ((acat astro-catalog) (i fixnum))

@@ -54,6 +54,7 @@
 		 (:file "ctio-decam")
 		 (:file "atlas")
 		 (:file "NOT-alfosc")
+		 (:file "eso-ntt-emmi+susi")
 		 
 		 (:file "misc-unhandled-cameras")
 		 ))

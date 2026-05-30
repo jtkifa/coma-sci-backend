@@ -19,7 +19,7 @@
 		     drakma      ;; web client for testing
 		     cl-ppcre    ;; regexp
 		     jk-datadir  ;; find package data directory
-		     swank
+		     swank       ;; to allow REPL connection
 		     )
   :components
   ((:module "coma-json-server"

@@ -83,6 +83,7 @@
 		   for j below nd
 		   for entry in refcat
 		   do (setf (aref vec j) (aref entry i))))
+    ;; note that refcat seems to have valid proper motions everywhere
     (mark-astro-catalog-ok ;; use method to mark objects that are OK
      (make-instance 'refcat-catalog
 		    :n (if data 
@@ -116,6 +117,9 @@
 	(dra/dt (get-value acat :pmra i))    ;; mas/yr
 	(ddec/dt (get-value acat :pmdec i))) ;; mas/yr
 
+    ;; refcat seems to have valid proper motion everywhere so we don't check for
+    ;; invalid values like with other catalogs
+    
     ;; shift to epoch mjd
     (when mjd
       (let* ((years-difference (/ (- mjd refcat:+refcat-epoch+) 365.25d0))

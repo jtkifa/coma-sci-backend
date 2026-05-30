@@ -113,7 +113,8 @@ by pushing :slalib-starlink or :slalib-iraf onto *features*
 (eval-when (:load-toplevel :compile-toplevel)
   
   (cffi:define-foreign-library libslalib
-    (:darwin (:or "libslalib.dylib"))
+    (:darwin (:or "libslalib_local.dylib" ;; allow for a local override
+		  "libslalib.dylib"))
     (:unix (:or "libslalib.so"
 		"libslalib_gfortran3.so"
 		"libslalib_gfortran4.so"
@@ -238,19 +239,19 @@ by pushing :slalib-starlink or :slalib-iraf onto *features*
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     
-
+ 
 ;; on both OSX and Linux x86-64, :long is 8-bytes, like Fortran ints,
 ;; at least using the method we use to compile the Fortran library
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (defparameter *slalib-fortran-int-type*
+  (defparameter *slalib-fortran-int-type* 
     (or #+(and (or sbcl abcl ccl) :x86-64) :long
 	#+(and sbcl darwin arm64) :long
-	#+(and sbcl linux arm64) :long
 	(error
-	 "You will have to figure out what slalib::*slalib-fortran-int-type*
-is (:long or :int) for this Lisp implementation, and fix slalib.lisp
+	 "You will have to figure out what slalib::*slalib-fortran-int-type* 
+is (:long or :int) for this Lisp implementation, and fix slalib.lisp 
 accordingly.")
-    )))
+	)
+    ))
 
 
 (cffi:defctype fortran-int #.*slalib-fortran-int-type*)
@@ -788,7 +789,7 @@ solar units, or 0d0 for small bodies."
     (declare (ignorable dummy))
     ;;
     (if (not (zerop jstat))
-	(error "ERROR ~A in sla-pv2el-raw: ~A"
+	(error "ERROR ~A in sla-pv2ue-raw: ~A"
 	       jstat
 	       (case jstat
 		 (-1 (format nil "Illegal PMASS=~A" pmass))
@@ -819,7 +820,7 @@ to double float PV[0..5]"
     (declare (ignorable dummy))
     ;;
     (if (not (zerop jstat))
-	(error "ERROR ~A in sla-pv2el-raw: ~A"
+	(error "ERROR ~A in sla-ue2pv-raw: ~A"
 	       jstat
 	       (case jstat
 		 (-1 "Radius vector zero.")
@@ -905,7 +906,7 @@ timespan) and JFORM=1..8 (coincident with large planet)"
 	(error  "ERROR ~A in sla-pertue-raw: ~A"
 		jstat
 		(case jstat
-		  (-1 (format nil "Numerial error."))
+		  (-1 (format nil "Numerical error."))
 		  (102 "Distant epoch - WARNING only")
 		  (101 "Excessively long timespan - WARNING only")
 		  ((1 2 3 4 5 6 7 8)
@@ -998,7 +999,7 @@ Outputs are RADIANS."
     (when (not (= jform jformr))
       (error "requested elements type ~A but got ~A" jformr jform))
     (when (minusp jstat)
-      (error "ERROR in sla-el2ue-raw: ~A"
+      (error "ERROR in sla-ue2el-raw: ~A"
 	     (case jstat
 	       (-1 (format nil "Illegal PMASS"))
 	       (-2 (format nil "Illegal JFORMR=~A" jformr))
@@ -1433,9 +1434,13 @@ in radians.  Planets are NP=
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; at end, test if we're OK
+;; at end, test if we're OK by checking coordinates of Mars
 (eval-when (:load-toplevel)
-  ;; 
+  ;;
+  ;; handle a very specific glitch in SBCL on OSX x86 with OpenCore
+  ;; that causes a math exception on certain initial FFI calls
+  #+(and sbcl darwin x86-64) (sb-int:get-floating-point-modes)
+  ;;
   (multiple-value-bind (year month day sec)
       (slalib::sla-djcl 54500.5d0)
     (when (not (and (= year 2008)
@@ -1469,3 +1474,4 @@ with 8-byte integers." ra dec diam))))
 		    
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+

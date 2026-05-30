@@ -86,9 +86,9 @@ A list of column IDs is returned as the 2nd value."
   (multiple-value-bind (data-vec keys-or-error)
       (ignore-errors
 	(run-vizquery-and-parse/multisites ra-deg dec-deg (* radius-deg 60.0) catalog
-				'(("SDSS" :id string "")
-				  ("RAJ2000" :ra double-float 1d99)
-				  ("DEJ2000" :dec double-float 1d99)
+				`(("SDSS" :id string "")
+				  ("RA_ICRS" :ra double-float ,*invalid-dbl-value*)
+				  ("DE_ICRS" :dec double-float ,*invalid-dbl-value*)
 				  ("umag"   :u double-float 0d0)
 				  ("e_umag" :u-err double-float 0d0)
 				  ("gmag"   :g double-float 0d0)
@@ -104,7 +104,7 @@ A list of column IDs is returned as the 2nd value."
     (if (typep keys-or-error 'error)
 	(error keys-or-error)
 	(values data-vec keys-or-error))))
-
+ 
 
 
 (defun read-sdss7-catalog (ra-deg dec-deg radius-deg &key  (method :vizquery))

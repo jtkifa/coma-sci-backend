@@ -28,9 +28,6 @@ Request
        // max distance in AU to plot forward and back in time from MJD
        "RHELIO-MAX": 30.0,
 
-       // approximate float values for xyz and MJD, to compress output
-       APPROXIMATE=true,
-
        // orbital size step, relative to distance from sun (approx)
        "DR-FRAC": 0.02
     }
@@ -70,7 +67,6 @@ Returns:
 			   "JPL-ORBIT"))
 	   comet-elem comet-elem-error
 	   univ-elem ;; we use univ elem to avoid issues for hyperbolics
-	   (approximate (get-param "APRPROXIMATE" :default nil))
 	   (rhelio-max (get-param "RHELIO-MAX" :default 30d0))
 	   (dr-frac (get-param "DR-FRAC" :default 0.01d0)))
 
@@ -84,7 +80,7 @@ Returns:
       (jcom-test-expr (not json-orbit)
 		      "NO-ORBIT-GIVEN"
 		      "No ORBIT was given, but ORBIT needs to be 'JPL-ORBIT', 'MPC-ORBIT', or a valid JSON orbit element structure")
-      
+
       ;; if orbit not given, set it to time-peri
       (when (and comet-elem (not mjd))
 	(setf mjd (orbital-elements:comet-elem-time-peri comet-elem)))
@@ -103,7 +99,7 @@ Returns:
 		       json-orbit comet-elem-error))
       ;;
       (multiple-value-bind (uel error)
-	  (ignore-errors
+	  (bt-ignore-errors
 	   (slalib-ephem:convert-comet-elem-to-universal-elem comet-elem))
 	(jcom-test-expr
 	 (not uel)
@@ -114,7 +110,7 @@ Returns:
       (jcom-test-expr (or (not (realp rhelio-max))
 			  (not (< rhelio-max 300)))
 		      "INVALID-RHELIO-MAX"
-		      "RHELIO-MAX is not a number <300 AU")
+		      "RHELIO-MAX is not a number <300 AU") 
       ;;
       (jcom-test-expr (or (not (realp dr-frac))
 			  (not (< 0.001 dr-frac 0.2)))
@@ -122,7 +118,7 @@ Returns:
 		      "RHELIO-MAX is not a number in the range 0.001 to 0.2")
 		 ;;
       (multiple-value-bind (mjd-vec x-vec y-vec z-vec is-closed)
-	  (ignore-errors
+	  (bt-ignore-errors
 	   (%get-orbit-xyz-internal
 	    comet-elem univ-elem mjd rhelio-max dr-frac))
 	;;
@@ -133,10 +129,6 @@ Returns:
 	     "INTERNAL-ORBIT-CALCULATION-ERROR"
 	     (format nil "Internal error computing orbit XYZ: ~A"
 		     %err))))
-
-	;; perform suitable rounding if requested (as by default)
-	(when approximate
-	  (%orbit-xyz-approximate mjd-vec x-vec y-vec z-vec))
 
 	
 	(set-param "MJD" mjd)
@@ -153,17 +145,29 @@ Returns:
 (defun %get-orbit-xyz-internal (comet-elem univ-elem mjd rhelio-max dr-frac)
   (let* ((rperi (orbital-elements:comet-elem-q comet-elem))
 	 (ecc (orbital-elements:comet-elem-e comet-elem))
-	 (a/au (orbital-mech:a-from-pericenter-e rperi ecc))
-	 (a/mks (* +au/m+ a/au))
+	 (max-ecc 0.99999999d0)
+	 (is-bound (<= ecc max-ecc))
+	 (a/au (if is-bound
+		   (orbital-mech:a-from-pericenter-e rperi ecc)))
+	 (a/mks (if is-bound
+		    (* +au/m+ a/au)))
+	 ;; the period will be a bogus long value
 	 (period/sec
-	   (* 2 pi (sqrt (/ (expt a/mks 3) +gm-sun+))))
+	   (if is-bound
+	       (* 2 pi (sqrt (/ (expt a/mks 3) +gm-sun+)))))
 	 (period/days
-	   (/ period/sec +day/sec+))
-	 (raph (if (< ecc 1)
+	   (if is-bound
+	       (/ period/sec +day/sec+)
+	       ;; if unbound, make up an artificial long period,
+	       ;; used only for computing a start/end MJD, which is
+	       ;; further truncated by hitting raph
+	       (* 365.5 1000))) 
+	 (raph (if is-bound
 		   (orbital-mech:apocenter-from-a-e a/au ecc)
-		   1e6)) ;; 1M AU for non-elliptical orbit
+		   ;; 1M AU for non-elliptical orbit
+		   1e6)) 
 	 ;; if aphelion is inside rhelio-max, close the orbit
-	 (is-closed (< raph rhelio-max)))
+	 (is-closed (and is-bound (< raph rhelio-max))))
 
     (cond (is-closed ;; closed orbit case
 	   (multiple-value-bind (mjd-vec x-vec y-vec z-vec)
@@ -175,6 +179,34 @@ Returns:
 	       (%get-orbit-xyz/open univ-elem mjd rhelio-max dr-frac)
 	     (values mjd-vec x-vec y-vec z-vec nil))))))
 
+;; perturb elements if they're 100 days off - good enough for
+;; gummint work (or plotting orbits)
+(defun %maybe-perturb-uelem (mjd univ-elem)
+  (let ((mjd-of-orbit (aref (orbital-elements:univ-elem-velem univ-elem)
+			 2)))
+    (cond
+      ;; if the orbit is more than 100 days from its epoch, update it
+      ((> (abs (- mjd mjd-of-orbit)) 100)
+       ;; we perturb by steps of 1000 days because giant leaps
+       ;; can cause SLALIB to throw an error.  Honesetly, for such
+       ;; orbits, the orbit is certainly bad, but this is for a
+       ;; NOMINAL orbital plot.
+       (loop with sign = (if (> mjd mjd-of-orbit) 1 -1)
+	     with delta = (* 1000d0 sign)
+	     with new-univ-elem = univ-elem
+	     for mjd* = (+ mjd-of-orbit delta) then (+ mjd* delta)
+	     do
+		;; fix over/undershoot
+		(cond ((= sign +1)
+		       (if (>= mjd* mjd) (setf mjd* mjd)))
+		      ((= sign -1)
+		       (if (<= mjd* mjd) (setf mjd* mjd))))
+		(setf new-univ-elem
+		      (slalib-ephem:perturb-universal-elem mjd* new-univ-elem))
+		(if (= mjd* mjd)
+		    (return new-univ-elem))))
+      (t
+       univ-elem))))
 
 (defun %get-orbit-xyz/closed (univ-elem mjd period/days dr-frac)
   (let ((mjd-start (- mjd (* 0.5d0 period/days)))
@@ -184,10 +216,13 @@ Returns:
     (loop with pv = (make-array 6 :element-type 'double-float)
 	  with outlist = nil
 	  with %mjd = mjd-start
+	  with univ-elem-fresh = univ-elem
 	  while (< %mjd mjd-end)
 	  do
+	     ;; keep using reasonably fresh elements
+	     (setf univ-elem-fresh  (%maybe-perturb-uelem %mjd univ-elem))
 	     (slalib-ephem:compute-pv-from-universal-elem
-	      univ-elem %mjd
+	      univ-elem-fresh %mjd
 	      :pv pv
 	      :units :au)
 	     (let* ((v ;; velocity, AU/day
@@ -233,11 +268,14 @@ Returns:
 		 with stop = nil
 		 with outlist = nil
 		 with %mjd = mjd
+		 with univ-elem-fresh = univ-elem
 		 for first-step = t then nil
 		 until stop
 		 do
+		    ;; keep using reasdonably fresh elements
+		    (setf univ-elem-fresh  (%maybe-perturb-uelem %mjd univ-elem))
 		    (slalib-ephem:compute-pv-from-universal-elem
-		     univ-elem %mjd
+		     univ-elem-fresh %mjd
 		     :pv pv
 		     :units :au)
 		    (let* ((v ;; velocity, AU/day
@@ -283,47 +321,3 @@ Returns:
        ))))
 
 			   
-;;;;;;;;;;;;;;;;
-
-(defun %orbit-xyz-approximate (mjd-vec x-vec y-vec z-vec)
-  (flet ((dround (x ndigit)
-	   (let* ((xx (float x 1d0))
-		  (xxn (round (* xx (expt 10 ndigit))))
-		  (xout (/ (* 1d0 xxn) (expt 10 ndigit))))
-	     xout)))
-    (loop for i from 0
-	  for mjd across mjd-vec
-	  for x across x-vec and y across y-vec and z across z-vec
-	  ;;
-	  for dmjd = (if (zerop i) 
-			 (- (aref mjd-vec 1) (aref mjd-vec 0))
-			 (- (aref mjd-vec i) (aref mjd-vec (1- i))))
-	  for ndig-mjd = (cond ((< dmjd 0.1)
-				3)
-			       ((< dmjd 10)
-				2)
-			       (t
-				1))
-	  for mjd-approx = (dround mjd ndig-mjd)
-	  ;;
-	  for r = (sqrt (+ (* x x) (* y y) (* z z)))
-	  for ndig-xyz = (cond ((< r 0.1)
-				4)
-			       ((< r 1)
-				3)
-			       ((< r 30)
-				2)
-			       (t
-				1))
-	  for x-approx = (dround x ndig-xyz)
-	  for y-approx = (dround y ndig-xyz)
-	  for z-approx = (dround z ndig-xyz)
-	  ;;
-	  do
-	     (setf (aref mjd-vec i) mjd-approx)
-	     (setf (aref x-vec i) x-approx)
-	     (setf (aref y-vec i) y-approx)
-	     (setf (aref z-vec i) z-approx))))	  
-			       
-			       
-    

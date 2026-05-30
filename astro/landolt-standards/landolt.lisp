@@ -25,7 +25,6 @@ DIST/ARCSEC of RA,DEC as
    #:landolt-star-nobs #:landolt-star-ra #:landolt-star-dec
    #:landolt-star-pmra #:landolt-star-pmdec
    #:landolt-star-simbadname
-   #:read-landolt-file ;; For runtime initialization
    ))
 
 (in-package landolt)
@@ -104,7 +103,6 @@ PG0918+029D 12.272  1.044  0.821  0.575  0.535  19 09 21 21.936 +02 47 28.28   -
 	  
     
 
-;; Re-enabled for Docker build - data files are present in repository
 (eval-when (:load-toplevel)
   (when (not *landolt-stars*)
     (read-landolt-file)))

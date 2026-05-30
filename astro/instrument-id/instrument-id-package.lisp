@@ -3,7 +3,7 @@
 (defpackage instrument-id
   (:use #:cl)
   (:export
-   #:instrument #:instrument-observatory #:instrument-name
+   #:instrument #:observatory #:instrument-observatory #:instrument-name 
    #:imaging-instrument #:multichip #:onechip #:instrument
    #:fzipped-p ;; incomplete support - only some instruments
    #:instruments-combinable-p
@@ -11,8 +11,13 @@
    #:saturation-level
    #:non-linear-level
    #:aperture
+   #:has-overscan
    #:detector-type #:telescope-design
+   #:gain-keyword #:instrument-gain-keyword
    #:chip-id ;; slot of onechip
+   ;;
+   #:defclass/inst
+   #:%add-instrument-id-function
    ;;
    #:preprocessed
    #:preprocessed-p #:preprocessed-p-for-fits
@@ -36,6 +41,7 @@
    #:get-chip-id-for-instrument  
    #:get-datasec-for-instrument  
    #:get-trimsec-for-instrument
+   #:get-overscans-for-instrument
    #:get-statsec-for-instrument
    #:convert-imagesec-to-trimmed-imagesec  ;; an extra helper function 
    #:get-initial-wcs-for-instrument  
@@ -67,6 +73,7 @@
    #:get-chip-id-for-fits
    #:get-datasec-for-fits
    #:get-trimsec-for-fits
+   #:get-overscans-for-fits
    #:get-statsec-for-fits
    #:insert-initial-wcs-for-fits 
    #:get-initial-wcs-for-fits
@@ -270,6 +277,26 @@
    #:atlas-aux-stamp-diff/tdo
    ;;
    #:not-alfosc
+   ;;
+   #:eso-ntt-susi/raw
+   #:eso-ntt-susi/reduced
+   #:eso-ntt-susi2/raw1ext
+   #:eso-ntt-susi2/raw2ext
+   #:eso-ntt-susi2/reduced
+   #:eso-ntt-susi2/reduced-onechip 
+   #:eso-ntt-emmi-rild-thx1024/raw
+   #:eso-ntt-emmi-rild-thx1024/reduced
+   #:eso-ntt-emmi-rild-fa2048/raw2ext
+   #:eso-ntt-emmi-rild-fa2048/raw4ext
+   #:eso-ntt-emmi-rild-fa2048/reduced
+   #:eso-ntt-emmi-rild-fa2048/reduced-onechip
+   #:eso-ntt-emmi-rild-tek2048/raw
+   #:eso-ntt-emmi-rild-tek2048/reduced
+   #:eso-ntt-emmi-bimg-thx1024/raw
+   #:eso-ntt-emmi-bimg-thx1024/reduced
+   #:eso-ntt-emmi-bimg-tek1024/raw
+   #:eso-ntt-emmi-bimg-tek1024/reduced
+
    ;;
    #:generic-onechip
    #:add-generic-headers-using-template

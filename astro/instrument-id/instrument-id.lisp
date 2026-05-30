@@ -43,7 +43,11 @@
    (telescope-design  :initarg :telescope-design
 		      :accessor telescope-design
 		      :initform "Reflector")
-   
+   ;; does this instrument have one or more overscan regions
+   ;; suitable for processing?  NIL by default
+   (has-overscan :initarg :has-overscan
+		 :accessor has-overscan
+		 :initform nil)   
    ))
 
 ;; instrument mixin for a fzipped file - most instruments do not have this written yet.
@@ -164,6 +168,17 @@ meaning 'same chip' for onchip instruments."))
     val))
 
 
+;; helper macro to throw error if a multichip function is called without
+;; EXTENSION keyword set, unless FITS-FILE is a CF:FITS_FILE, in which
+;; case the current extension can be used. Assumes existence of variables
+;; EXTENSION and FITS-FILE
+(defmacro %require-extension (where)
+  `(when (not (or (cf:fits-file-p fits-file)
+		  extension)) ;; for case of filename
+     (error ,(format nil "ERROR in ~A - must specify EXTENSION for multichip." where))))
+
+
+
 ;; helper to get header from the 'info' header which is generally header 1 or 2,
 ;; using method  (get-info-header inst)
 (defun %gethead-info (inst fits header &key (space-trim-strings t) (throw-error t))
@@ -273,6 +288,14 @@ image.  This is the section of the BINNED image that contains GOOD
 image data. The indices start at 1.  If this returns NIL, then the
 image is not to be trimmed."))
 
+(defgeneric get-overscans-for-instrument (imaging-instrument fits-file
+					  &key extension)
+  (:documentation "Get a list of overscan sections as vectors #(nx1 nx2 ny1 ny2)
+for animage.  This is the section of the BINNED image that contains GOOD
+image data. If this returns NIL, then there is no overscan.  By default,
+an instrument has no overscan."))
+
+
 (defgeneric get-statsec-for-instrument (imaging-instrument fits-file
 					&key extension)
   (:documentation "Get statistics section as a vector #(nx1 nx2 ny1
@@ -326,12 +349,17 @@ or a keyword representing the method used."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
+;; by default, return first 2d image in a fits file
 (defmethod get-image-extension-for-onechip-instrument ((inst onechip) fits-file)
-  (declare (ignore inst fits-file))
   (if (fzipped-p inst)
       2  ;; fzipped file put everything into ext 2 unless it began with multiple exts
-      1)) ;; in extension (HDU) 1 unless otherwise specified
+      ;; else search for first 2d image to account for possible primary header
+      (cf:maybe-with-open-fits-file (fits-file ff)
+	(loop for i from 1 to (cf:fits-file-num-hdus ff)
+	      do (cf:move-to-extension ff i)
+		 (when (and (cf:fits-file-current-hdu-type ff) :image
+			    (eql 2 (cf:fits-file-current-image-ndims ff)))
+		   (return i))))))
 
 ;; common critical keywords
 (defparameter *default-critical-keywords*
@@ -442,13 +470,14 @@ or a keyword representing the method used."))
 (defun err-if-not-image-at-extension (instrument fits where extension)
   (when (not (test-if-image-at-extension-for-instrument 
 	      instrument fits :extension extension))
-    (error "Attempted to perform a image-based operation ~A at a non-image extension ~A" where
+    (error "Attempted to perform a image-based operation '~A' at a non-image extension ~A of ~A"
+	   where
 	   ;; figure out which extension we're using for this call
-	   (or extension
-	       (if (cf:fits-file-p fits)
-		   (cf:fits-file-current-hdu-num fits))
-	       ;; if fits is a filename, must be using extension 1
-	       1))))
+	   extension
+	   (if (cf:fits-file-p fits)
+	       (cf:fits-file-filename fits)
+	       fits))))
+		       
 
 (defun aperture-for-fits (fits-file  &key (instrument nil))
   "Get the aperture (meters) or NIL for a fits file."
@@ -534,6 +563,14 @@ This is a subset of the DATASEC with good data."
   (get-trimsec-for-instrument
    (%id-instrument-or-fail fits-file :instrument instrument)
    fits-file :extension extension))
+
+(defun get-overscans-for-fits (fits-file  &key (instrument nil) (extension nil))
+  "Get a list of overscans #(x1 x2 y1 y2) for a fits file, possibly at EXTENSION.
+May return NIL; by default instruments don't have an overscan."
+  (get-overscans-for-instrument
+   (%id-instrument-or-fail fits-file :instrument instrument)
+   fits-file :extension extension))
+
 
 (defun get-statsec-for-fits (fits-file  &key (instrument nil) (extension nil))
   "Get the a section #(x1 x2 y1 y2) suitable for computing image
@@ -631,11 +668,12 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
     (if (instrument-gain-keyword inst)
 	(cf:read-fits-header fits-file (instrument-gain-keyword inst)
 			     :extension extension)
-	(error "GAIN keyword undefined for instrument ~A" inst))))
+	(error "GAIN keyword undefined for instrument ~A" inst)))) 
 
 ;; method defined for multichip only when opened to a particular fits extension
 (defmethod get-gain-for-instrument ((inst multichip) fits-file
 				    &key extension)
+  (%require-extension "get-gain-for-instrument")
   (err-if-not-image-at-extension inst fits-file "get-gain" extension)
   (if (instrument-gain-keyword inst)
       (cf:read-fits-header fits-file (instrument-gain-keyword inst)
@@ -644,14 +682,42 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 	     (instrument-gain-keyword inst)
 	     inst)))
 
+;; get naxis1,naxis2 but allow for possibility that this
+;; is a compressed image with no such headers, so use-value
+;; fits file size.  If EXTENSION is NIL then current
+;; extension is used in case of FITS-FILE=FF (cf:fits-file struct)
+(defun %get-naxis1-naxis2 (fits-file &key extension)
+  (flet ((%gn1n2-internal (ff)
+	   ;; internal function that will always move to extension
+	   ;; if specified
+	   (cf:with-fits-extension (ff extension) ;; does nothing for NIL extension
+	     (when (and (eq (cf:fits-file-current-hdu-type ff) :image)
+			(eql (cf:fits-file-current-image-ndims ff) 2))
+	       (let ((naxis1 (cf:read-fits-header fits-file "NAXIS1"))
+		     (naxis2 (cf:read-fits-header fits-file "NAXIS2")))
+		 ;; we COULD just rely on CURRENT-IMAGE-SIZE
+		 (cond ((and naxis1 naxis2)
+			(values naxis1 naxis2))
+		       (t ;; must be commpressed?
+			(values
+			 (aref (cf:fits-file-current-image-size ff) 0)
+			 (aref (cf:fits-file-current-image-size ff) 1)))))))))
+    ;; if we just did 'maybe-with-open-fits-file' then extension would be reset
+    ;; to first one, which we don't want for the case of a multpichip
+    (cond ((typep fits-file 'cfitsio:fits-file)
+	   (%gn1n2-internal fits-file)) ;; don't change extension unless EXTENSION  is set
+	  (t
+	   (cf:with-open-fits-file (fits-file ff)
+	     (%gn1n2-internal ff))))))
+	  
 
 (defmethod test-if-image-at-extension-for-instrument
     ((inst imaging-instrument) fits-file &key  extension)
-  (let ((naxis1 (cf:read-fits-header fits-file "NAXIS1" :extension extension))
-	(naxis2 (cf:read-fits-header fits-file "NAXIS2" :extension extension)))
-    (and naxis1 naxis2
-	 (integerp naxis1) (integerp naxis2)
-	 (plusp naxis1) (plusp naxis2))))
+  (when (typep inst 'multichip)
+    (%require-extension "test-if-image-at-extension-for-instrument"))
+  (not (not (%get-naxis1-naxis2 fits-file :extension extension))))
+
+      
 
 (defmethod get-badpix-function-for-instrument 
     ((inst imaging-instrument) fits-file &key  extension)
@@ -675,6 +741,7 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod write-gain-for-instrument ((inst multichip) fits-file gain
 				      &key extension)
+  (%require-extension "write-gain-for-instrument")
   (err-if-not-image-at-extension inst fits-file "write-gain" extension)
   (if (instrument-gain-keyword inst)
       (cf:write-fits-header fits-file (instrument-gain-keyword inst) gain
@@ -697,6 +764,7 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 ;; override gain with standard header
 (defmethod get-gain-for-instrument :around ((inst multichip) fits-file
 					    &key extension)
+  (%require-extension "get-gain-for-instrument :before method")
   (err-if-not-image-at-extension inst fits-file "get-gain" extension)
   (or (get-standard-header fits-file :gain :extension extension)
       (call-next-method inst fits-file :extension extension)))
@@ -746,6 +814,7 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod get-chip-id-for-instrument ((inst multichip) fits-file
 				       &key extension)
+  (%require-extension "get-chip-id-for-instrument")
   (err-if-not-image-at-extension inst fits-file "get-chip-id" extension)
   (or (cf:read-fits-header fits-file "EXTNAME" :extension extension)
       (error "Cannot get EXTNAME for extension ~A of ~A"
@@ -761,6 +830,7 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod get-datasec-for-instrument ((inst multichip)
 				       fits-file &key extension)
+  (%require-extension "get-dataset-for-instrument")
   (err-if-not-image-at-extension inst fits-file "get-datasec" extension)
   (let ((datasec-header (cf:read-fits-header fits-file
 					     "DATASEC"
@@ -768,9 +838,9 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
     (if datasec-header
 	(cf:parse-image-section-string datasec-header)
 	;; else just make the whole image the DATASEC
-	(vector
-	 1 (%gethead-or-error fits-file "NAXIS1" :extension extension)
-	 1 (%gethead-or-error fits-file "NAXIS2" :extension extension)))))
+	(multiple-value-bind (naxis1 naxis2)
+	    (%get-naxis1-naxis2 fits-file :extension extension)
+	  (vector 1 naxis1 1 naxis2)))))
 
 ;; for onechip, make the extension be the right one
 (defmethod get-datasec-for-instrument ((inst onechip) fits-file
@@ -781,9 +851,9 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
       (if datasec-header
 	  (cf:parse-image-section-string datasec-header)
 	  ;; else just make the whole image the DATASEC
-	  (vector
-	   1 (%gethead-or-error fits-file "NAXIS1" :extension extension)
-	   1 (%gethead-or-error fits-file "NAXIS2" :extension extension))))))
+	  (multiple-value-bind (naxis1 naxis2)
+	      (%get-naxis1-naxis2 fits-file :extension extension)
+	    (vector 1 naxis1 1 naxis2))))))
 
 
 ;; if imagesec is non-null, parse it into a vector, otherwise return NIL
@@ -793,6 +863,7 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod get-datasec-for-instrument :around ((inst multichip) fits-file
 					       &key extension)
+  (%require-extension "get-datasec-for-instrument :around method")
   (or (%maybe-parse-imagesec
        (get-standard-header fits-file :datasec :extension extension))
       (call-next-method)))
@@ -809,8 +880,10 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod get-trimsec-for-instrument ((inst multichip)
 				       fits-file &key extension)
+  (%require-extension "get-trimsec-for-instrument")
   (err-if-not-image-at-extension inst fits-file "get-trimsec" extension)
   (get-datasec-for-instrument inst fits-file :extension extension))
+
 
 ;; for onechip, make the extension be the right one
 (defmethod get-trimsec-for-instrument ((inst onechip) fits-file
@@ -823,6 +896,7 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod get-trimsec-for-instrument :around ((inst multichip) fits-file
 					       &key extension)
+  (%require-extension "get-trimsec-for-instrument :around method")
   (or (%maybe-parse-imagesec
        (get-standard-header fits-file :trimsec :extension extension))
       (call-next-method)))
@@ -834,13 +908,64 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
     (get-standard-header fits-file :trimsec :extension extension))
    (call-next-method)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; by default, the overscans are the part of image outside datasec
+;; if the instrument supports overscans - processed images should
+;; have a dataset that is the whole image, hence no overscans.
+(defmethod get-overscans-for-instrument ((inst multichip)
+					 fits-file &key extension)
+  (%require-extension "get-overscans-for-instrument")
+  (when (has-overscan inst)
+    (cf:maybe-with-open-fits-file (fits-file ff)
+      (err-if-not-image-at-extension inst ff "get-trimsec" extension)
+      (%get-overscans-from-datasec inst ff extension))))
 
+(defmethod get-overscans-for-instrument ((inst onechip)
+					 fits-file &key extension)
+  (declare (ignorable extension))
+  (when (has-overscan inst)
+    (let ((extension (get-image-extension-for-onechip-instrument inst fits-file)))
+      (cf:maybe-with-open-fits-file (fits-file ff)
+	(err-if-not-image-at-extension inst ff "get-trimsec" extension)
+	(%get-overscans-from-datasec inst ff extension)))))
+
+(defun %get-overscans-from-datasec (inst ff extension)
+  (cf:with-fits-extension (ff extension)
+    (let* ((datasec (get-datasec-for-instrument
+		     inst ff :extension extension))
+	   (nx1 (aref datasec 0))
+	   (nx2 (aref datasec 1))
+	   (ny1 (aref datasec 2))
+	   (ny2 (aref datasec 3))
+	   (naxis1 (aref (cf:fits-file-current-image-size ff) 0))
+	   (naxis2 (aref (cf:fits-file-current-image-size ff) 1))
+	   (overscans nil))
+      ;; left overscan
+      (when (> nx1 1)
+	(push (vector 1 (1- nx1) 1 naxis2)
+	      overscans))
+      ;; right overscan
+      (when (< nx2 naxis1)
+	(push (vector (1+ nx2) naxis1 1 naxis2)
+	      overscans))
+      ;; top overscan, minus top corners from x overscans
+      (when (> ny1 1)
+	(push (vector nx1 nx2 1 (1- ny1))
+	      overscans))
+      ;; bottom overscan, minus bottom corners from x overscans
+      (when (< ny2 naxis2)
+	(push (vector nx1 nx2 (1+ ny2) naxis2)
+	      overscans))
+      ;;
+      (reverse overscans))))
+      
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; note that STATSEC (statistics section) is in the original, untrimmed image
 
 (defmethod get-statsec-for-instrument  ((inst multichip)
-				       fits-file &key extension)
+					fits-file &key extension)
+  (%require-extension "get-statsec-for-instrument")
   (err-if-not-image-at-extension inst fits-file "get-statsec" extension)
   (get-trimsec-for-instrument inst fits-file :extension extension))
 
@@ -856,6 +981,7 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod get-statsec-for-instrument :around ((inst multichip) fits-file
 					       &key extension)
+  (%require-extension "get-statsec-for-instrument :around method")
   (or (%maybe-parse-imagesec
        (get-standard-header fits-file :statsec :extension extension))
       (call-next-method)))
@@ -871,6 +997,8 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod get-initial-wcs-for-instrument ((inst %anychips) fits-file
 					   &key extension)
+  (when (typep inst 'multichip)
+    (%require-extension "get-initial-wcs-for-instrument"))
   (err-if-not-image-at-extension inst fits-file "get-initial-wcs" extension)
   (cf:read-wcs fits-file :extension extension))
 
@@ -884,14 +1012,20 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 
 
-;; by default, do nothing assuming initial WCS is in the file already
+;; by default, 
 (defmethod insert-initial-wcs-for-instrument
     ((inst %anychips) fits-file
      &key extension)
+  (when (typep inst 'multichip)
+      (%require-extension "insert-initial-wcs-for-instrument"))
   (err-if-not-image-at-extension inst fits-file "insert-wcs" extension)
   (when (not (cf:read-wcs fits-file :extension extension))
-    (error "No WCS found in ~A" fits-file))
-  t)
+    (let ((wcs-new (instrument-id:get-initial-wcs-for-instrument
+		    inst fits-file :extension extension)))
+      (if wcs-new
+	  (cf:write-wcs wcs-new fits-file :extension extension)
+	  (error "ERROR in INSERT-INITIAL-WCS-FOR-INSTRUMENT - no WCS found in ~A extension ~A and GET-INITIAL-WCS-FOR-INSTRUMENT did not return a WCS." fits-file extension))
+  t)))
 
 
 (defmethod insert-initial-wcs-for-instrument ((inst onechip) fits-file
@@ -904,6 +1038,8 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
 (defmethod  get-pixel-scale-for-instrument ((inst %anychips) fits-file
 					    &key extension)
+  (when (typep inst 'multichip)
+    (%require-extension "get-pixel-scale-for-instrument"))
   (err-if-not-image-at-extension inst fits-file "get-pixel-scale" extension)
   (let ((wcs
 	  (or (ignore-errors ;; some instruments have bogus wcs
@@ -935,6 +1071,8 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
  
 (defmethod get-chip-id-for-instrument :around ((inst instrument) fits-file
 					       &key extension)
+  (when (typep inst 'multichip)
+    (%require-extension "get-chip-id-for-instrument"))
   (or (get-standard-header fits-file :chip-id :extension extension)
       (call-next-method)))
 
@@ -1062,90 +1200,93 @@ Returns (VALUES T/NIL N-FZIPPED N-NOT-FZIPPED)"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; validation function to see if functions work on a particular fits file
-(defun validate-fits-file (fits-file &key (extension T)
+(defun validate-fits-file (fits-file &key (extension :first-image)
 				       (output :print)
 				       (require-wcs t))
   "Validate whether the functions of instrument-id package work on a fits image.
 OUTPUT can be :PRINT to print to console, or :LIST to generate a list of failures.
 
-EXTENSION is T by default, meaning to use 1 if a multipchip, and the image extension
-if a onechip."
+EXTENSION is :FIRST-IMAGE by default."
   (declare (type (member :print :list) output))
   (let* ((error-list nil) ;; outputs if OUTPUT is LIST
 	 (inst nil)
-	 %extension
-	 (ff nil))
+	 %extension)
 
-    (unwind-protect
-	 (progn
-	   (setf ff (ignore-errors (cf:open-fits-file fits-file)))
+    (cf:with-open-fits-file (fits-file ff)
 
-	   (setf inst (when ff
-			(or (identify-instrument fits-file)
-			    (progn (if (eq output :print)
-				       (format t "Failed to identify instrument for ~A"
-					       fits-file)
-				       (push :failed-to-identify error-list))
-				   nil))))
+      (setf inst (when ff
+		   (or (identify-instrument fits-file)
+		       (progn (if (eq output :print)
+				  (format t "Failed to identify instrument for ~A"
+					  fits-file)
+				  (push :failed-to-identify error-list))
+			      nil))))
+    
+      (when inst
+	(when (eq output :print) (format t "Identified instrument ~A~%" inst))
 
-	   ;; for special INSTRUMENT=T value set to the ONCHIP default or 1 
-	   (if (and (eq extension t)
-		    (typep inst  'onechip))
+
+      ;; for special EXTENSION=:FIRST-IMAGE value set to the ONCHIP default or 1 
+      (when (eq extension :first-image)
+	(cond ((typep inst  'onechip)
 	       (setf %extension (get-image-extension-for-onechip-instrument
-				 inst fits-file))
-	       (setf %extension 1))
+				 inst fits-file)))
+	      (t ;; multipchip
+	       (loop for i from 1 to (cf:fits-file-num-hdus ff)
+		     do (cf:move-to-extension ff i)
+			(when (and (eq :image (cf:fits-file-current-hdu-type ff))
+				   (= 2 (cf:fits-file-current-image-ndims ff)))
+			  (setf %extension i)
+			  (return))))))
 
-	   (when inst
-	     (when (eq output :print) (format t "Identified instrument ~A~%" inst))
+      ;;(format t "Set EXTENSION=~A~%" %extension) (force-output)
       
-	     (macrolet ((do-test (command-form thing)
-			  `(let ((%result (ignore-errors (progn ,command-form))))
-			     (if (eq output :print)
-				 (if %result
-				     (format t "success accessing ~A~%" ,thing)
-				     (format t "ERROR attempting to access ~A~%" ,thing))
-				 (if (not %result)
-				     (push (intern ,thing :keyword) error-list))))))
-      
-	       (when (test-if-image-at-extension-for-fits ff :extension %extension)
-		 (when (eq output :print)
-		   (format t "There is an image extension here; running image functions~%~%"))
-		 (when require-wcs
-		   (do-test
-		       (get-initial-wcs-for-fits ff :extension %extension) "WCS"))
-		 (do-test
-		     (get-gain-for-fits ff :extension %extension) "GAIN")
-		 (do-test
-		     (get-chip-id-for-fits ff :extension %extension) "CHIP-ID")
-		 (do-test
-		     (get-trimsec-for-fits ff :extension %extension) "TRIMSEC")
-		 (do-test
-		     (get-datasec-for-fits ff :extension %extension) "DATASEC")
-		 (do-test
-		     (get-statsec-for-fits ff :extension %extension) "STATSEC")
-		 (do-test
-		     (get-pixel-scale-for-fits ff :extension %extension) "PIXEL-SCALE"))
-
-	       ;; the following tests are valid for all types of inst
-	       (do-test 
-		   (get-standard-filter-for-fits ff) "FILTER")
-	       (do-test
-		   (get-exptime-for-fits ff) "EXPTIME")
-	       (do-test
-		   (get-observatory-for-fits ff) "OBSERVATORY")
-	       (do-test
-		   (get-object-type-for-fits ff) "IMAGE-TYPE")
-	       (do-test
-		   (get-object-for-fits ff) "OBJECT-NAME")
-	       (do-test
-		   (get-mjd-mid-for-fits ff) "MJD-MID")
-	       (do-test
-		   (get-mjd-start-for-fits ff) "MJD-START"))))
-    (progn ;; inside unwind-protect
-      (when ff (ignore-errors (cf:close-fits-file ff)))))
-
-	   ;;
-	   (if (eq output :list) (values inst error-list))))
+	(macrolet ((do-test (command-form thing)
+		     `(let ((%result (ignore-errors (progn ,command-form))))
+			(if (eq output :print)
+			    (if %result
+				(format t "success accessing ~A~%" ,thing)
+				(format t "ERROR attempting to access ~A~%" ,thing))
+			    (if (not %result)
+				(push (intern ,thing :keyword) error-list))))))
+	
+	  (when (test-if-image-at-extension-for-fits ff :extension %extension)
+	    (when (eq output :print)
+	      (format t "There is an image extension here; running image functions~%~%"))
+	    (when require-wcs
+	      (do-test
+		  (get-initial-wcs-for-fits ff :extension %extension) "WCS"))
+	    (do-test
+		(get-gain-for-fits ff :extension %extension) "GAIN")
+	    (do-test
+		(get-chip-id-for-fits ff :extension %extension) "CHIP-ID")
+	    (do-test
+		(get-trimsec-for-fits ff :extension %extension) "TRIMSEC")
+	    (do-test
+		(get-datasec-for-fits ff :extension %extension) "DATASEC")
+	    (do-test
+		(get-statsec-for-fits ff :extension %extension) "STATSEC")
+	    (do-test
+		(get-pixel-scale-for-fits ff :extension %extension) "PIXEL-SCALE"))
+	
+	  ;; the following tests are valid for all types of inst
+	  (do-test 
+	      (get-standard-filter-for-fits ff) "FILTER")
+	  (do-test
+	      (get-exptime-for-fits ff) "EXPTIME")
+	  (do-test
+	      (get-observatory-for-fits ff) "OBSERVATORY")
+	  (do-test
+	      (get-object-type-for-fits ff) "IMAGE-TYPE")
+	  (do-test
+	      (get-object-for-fits ff) "OBJECT-NAME")
+	  (do-test
+	      (get-mjd-mid-for-fits ff) "MJD-MID")
+	  (do-test
+	      (get-mjd-start-for-fits ff) "MJD-START")))
+    
+      ;;
+      (if (eq output :list) (values inst error-list)))))
       
       
       

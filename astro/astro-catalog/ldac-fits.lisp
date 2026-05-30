@@ -131,7 +131,7 @@ with '%' to allow recovery of the catalog from the FITS file."
 	       (cf:write-fits-header ff "RA" (ra-center catalog) :comment "Center RA")
 	       (cf:write-fits-header ff "DEC" (dec-center catalog) :comment "Center Dec")
 	       (cf:write-fits-header ff "MJD-CAT" mjd
-				     :comment "RA,Dec at MJD using prop mot if avail")
+				     :comment "RA,Dec at MJD using proper motion if avail")
 	       (cf:write-fits-header ff "EQUINOX" 2000d0)
 	       (cf:write-fits-header ff "RADIUS" (radius-deg catalog)
 				     :comment "Radius of field in degrees")
@@ -141,6 +141,11 @@ with '%' to allow recovery of the catalog from the FITS file."
 	       (cf:write-fits-header ff "MAG_TYPE"
 				     (or mag-to-use "ANY-AVAIL")
 				     :comment "Magnitude in MAG field")
+	       (cf:write-fits-comment 
+		ff
+		(format nil "RA,Dec proper motion corrected to MJD=~,1F (~A)      where possible"
+			mjd (astro-time:mjd-to-ut-string  mjd :frac-seconds nil)))
+				      
     
       
      

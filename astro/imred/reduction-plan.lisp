@@ -55,6 +55,20 @@
     :accessor reduction-plan-delete-intermediate-files)
    ;;
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   ;; default overscan subtraction uses a single median value from
+   ;; overscan regions - anything fancier should be in per-instrument
+   ;; preproc step
+   (overscan-subtract
+    :initarg :overscan-subtract
+    :initform nil  ;; generally don't overscan subtract
+    :accessor reduction-plan-overscan-subtract)
+   ;; NIL, list of vectors, or function of EXTDESC
+   ;; generally, should use instrument-id, so use NIL
+   (overscans ;; LIST of sections, not just one
+    :initarg :overscans
+    :initform nil ;; generally, use INSTRUMENT-ID
+    :accessor reduction-plan-overscans)
+   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; TRIM parameters
    ;;
    ;; if TRIM is T, do trimming.  If TRIMSEC is NIL, try to use
@@ -66,7 +80,7 @@
     :initform t
     :accessor reduction-plan-trim)
    ;; NIL, vector, or function of EXTDESC - resolved in func
-   ;; trim-image - generally, should use instrument-id, so use NIL
+   ;; trim-image - generally, should use INSTRUMENT-ID, so use NIL
    (trimsec  
     :initarg :trimsec
     :initform NIL ;; trust instrument ID to compute it by default
@@ -514,16 +528,6 @@ Returns a FILESET"
 	     (push (fullfile fits) (fileset-object-list fileset)))))
 
 
-    ;; get rid of bad object flats, and cull down the excess
-    ;; NO! Cannot do this here because they are not bias subtracted
-    ;; (when (or (reduction-plan-mandate-object-images-for-flats reduction-plan)
-    ;; 	      (reduction-plan-allow-object-images-for-flats reduction-plan))
-    ;;   (loop for flatset in (fileset-flatsets fileset)
-    ;; 	 do
-    ;; 	   (setf (flatset-flat-list/obj flatset)
-    ;; 		 (%clean-up-object-flat-list  reduction-plan
-    ;; 					      (flatset-flat-list/obj flatset)))))
-    
     ;; go through the flatsets and decide whether to use flat or object (darksky) flats
     (loop for flatset in (fileset-flatsets fileset)
 	  do

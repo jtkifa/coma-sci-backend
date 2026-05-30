@@ -2,14 +2,28 @@
 
 (in-package imred)
 
-
+;; extname header is not reliable to get CHIP1,2
+(defun %vlt-fors-get-chip-name (fits)
+  (let ((inst-string (string (type-of (instrument-id:identify-instrument fits)))))
+    (cond ((search "chip1" inst-string :test 'equalp)
+	   "CHIP1")
+	  ((search "chip2" inst-string :test 'equalp)
+	   "CHIP2")
+	  (t
+	   (error "Cannot tell if VLT-FORS instrument ~A is CHIP1 or CHIP2 for file ~A"
+		  inst-string
+		  (if (cf:fits-file-p fits)
+		      (cf:fits-file-filename fits)
+		      fits))))))
+	  
+  
 ;; reduction plan suitable for VLT FORS
 ;;
 (defclass %reduction-plan-vlt-fors (reduction-plan)
   ((trimsec :initform #(0 0 0 0))
    (bias-group-func
     :initform  (lambda (fits)
-		 (concatenate 'string "-" (%gethead-or-error fits "EXTNAME"))))
+		 (concatenate 'string "-" (%vlt-fors-get-chip-name fits))))
    (flat-group-func
     :initform (lambda (fits)
 		(format nil
@@ -17,7 +31,7 @@
 			(or 
 			 (instrument-id:get-standard-filter-for-fits fits)
 			 (error "Could not get filter for ~A" fits))
-			(%gethead-or-error fits "EXTNAME"))))
+			(%vlt-fors-get-chip-name fits))))
    (fringe-group-func
     :initform
      (lambda (fits)
@@ -26,7 +40,7 @@
 			(or 
 			 (instrument-id:get-standard-filter-for-fits fits)
 			 (error "Could not get filter for ~A" fits))
-			(%gethead-or-error fits "EXTNAME"))))
+			(%vlt-fors-get-chip-name fits))))
    ;; flats are taken with high counts
    (min-flat-counts    :initform 5000)
    (max-flat-counts    :initform 55000)

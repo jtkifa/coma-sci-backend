@@ -362,26 +362,47 @@ Returns (VALUES COMPATIBLE-IMAGE-SET-LIST REJECTED-FITS-LIST REJECTION-REASONS-L
 	      rejection-reasons))))
 	   
 	   
+
+
+
+(defun %get-trimsec-at-extension (fits reduction-plan extension)
+  (let ((trimsec (reduction-plan-trimsec reduction-plan)))
+    (cond ((stringp trimsec)
+	   (cf:parse-image-section-string
+	    (or (cf:read-fits-header fits trimsec)
+		(error "Could not find TRIMSEC header '~A' in fits file ~A"
+		       trimsec fits))))
+	  ((vectorp trimsec)
+	   trimsec)
+	  (t
+	   (or
+	    (instrument-id:get-trimsec-for-fits fits :extension extension)
+	    (error "Could not get TRIMSEC for fits ~A" fits))))))
   
 
+(defun %get-overscans-at-extension (fits reduction-plan extension)
+  (let ((overscans (reduction-plan-overscans reduction-plan)))
+    (cond ((and overscans (listp overscans))
+	   (when (not (every
+		       (lambda (os)
+			 (and (vectorp os)
+			      (= (length os) 4)
+			      (every (lambda (n)
+				       (and (integerp n)
+					    (plusp n)))
+				     os)))
+		       overscans))
+	     (error "Overcans ~A are invalid image sections #(xmin xmax ymin ymax)."
+		    overscans))
+	   overscans)
+	  (t ;; this is allowed to return NIL for 'no overscans'
+	    (instrument-id:get-overscans-for-fits fits :extension extension)))))
 
-(defun %get-trimsec-at-extension (fits trimsec extension)
-  (cond ((stringp trimsec)
-	  (cf:parse-image-section-string
-	   (or (cf:read-fits-header fits trimsec)
-	       (error "Could not find TRIMSEC header '~A' in fits file ~A"
-		      trimsec fits))))
-	 ((vectorp trimsec)
-	  trimsec)
-	 (t
-	  (or
-	   (instrument-id:get-trimsec-for-fits fits :extension extension)
-	   (error "Could not get TRIMSEC for fits ~A" fits)))))
 
 
 ;; turn off ignore-error forms to allow backtraces to halt at
 ;; error location
-(defvar *disable-ignore-errors* nil)
+(defvar *disable-ignore-errors* t)
 (defmacro maybe-ignore-errors (&body body)
   `(flet ((%%ignore-err-func () ,@body))
      (if *disable-ignore-errors*

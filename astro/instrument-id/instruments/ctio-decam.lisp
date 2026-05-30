@@ -63,7 +63,7 @@
   (declare (ignore inst fits-file))
   (remove-duplicates
    (append
-    '("CCDNUM" "OPENSHUT")
+    '("CCDNUM" "OPENSHUT" "GAINA" "GAINB")
     (call-next-method))
    :test 'equalp))
 

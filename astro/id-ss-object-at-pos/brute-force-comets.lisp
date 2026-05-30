@@ -5,7 +5,6 @@
   (:export
    #:brute-force-search-comets ;; at MJD, RA, DEC
    #:build-comet-database
-   #:read-comet-data ; For runtime initialization
    ))
 
 (in-package brute-force-comets)
@@ -40,7 +39,6 @@
 	  do (push (list year orbit)
 		   (gethash name hash)))))
 
-;; Re-enabled for Docker build - data files are present in repository
 (eval-when (:load-toplevel)
   (read-comet-data))
 

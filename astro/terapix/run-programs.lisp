@@ -70,9 +70,11 @@ You need the set the variable
 	   (error "Terapix SCAMP program not found.")))
 
 
+	       
 ;; for the working directory, for /a/b/c/foo.fits  (or fit,flt)
 ;; we use /a/b/c/foo_DIR, but for /a/b/c/foo.xx we use /a/b.c/foo.xx_DIR
-(defun get-fits-directory (fits-file &key (if-does-not-exist nil))
+;; if EXTENSION is specified, it is foo_DIR/extN
+(defun get-fits-directory (fits-file &key (extension nil) (if-does-not-exist nil))
   "Returns the terapix processing directory for FITS-FILE or NIL if it
 does not exist.  If IF-DOES-NOT-EXIST does not exist, then return 
 the directory path even if does not exist."
@@ -86,20 +88,24 @@ the directory path even if does not exist."
 		   fits-file))
 	 (dir  (concatenate 'string
 			    (if is-fits-suffix base fits-file)
-			    "_DIR")))
+			    "_DIR"
+			    (if extension (format nil "/ext~3,'0D" extension) "")
+			    )))
     (if (or if-does-not-exist
 	    (cl-fad:directory-exists-p dir))
       dir
       nil)))
 
-(defun ensure-fits-directory (fits-file)
+(defun ensure-fits-directory (fits-file &key (extension nil))
   (let* ((suffix (file-io:file-suffix fits-file))
 	 (is-fits-suffix  (member suffix '("fit" "fits" "flt") :test 'equalp))
 	 ;; clip off suffix only if CLEARLY fits suffix - otherwise keep suffix
 	 (base (if is-fits-suffix
 		   (file-io:file-basename fits-file)
 		   fits-file))
-	 (dir  (concatenate 'string base "_DIR")) 
+	 (dir  (concatenate 
+		'string base "_DIR"
+		(if extension (format nil "/ext~3,'0D" extension) "")))
 	 (topdir (file-io:dir-of-file fits-file)) ;; clip filename
 	 (filebase (file-io:file-minus-dir base)))
      (ensure-directories-exist 
@@ -136,7 +142,8 @@ the directory path even if does not exist."
 	(concatenate 'string
 		     (if make-badpix-weight-image "BP" "")
 		     (tostring (md5:md5sum-file fits-file))
-		     (tostring (md5:md5sum-string (format nil "~A" extension)))
+		     ;; we use old 0-based extension for compatibility with old runs
+		     (tostring (md5:md5sum-string (format nil "~A" (1- extension))))
 		     (tostring (md5:md5sum-file param-filename))
 		     (tostring (md5:md5sum-file conv-filename))
 		     (tostring (md5:md5sum-file conf-filename))
@@ -158,7 +165,7 @@ the directory path even if does not exist."
 
 
 (defun %get-pixel-scale-for-sextractor (fits-file inst
-					zb-extension ;; zero-based extension
+					extension ;; 1-based
 					pixel-scale)
   (cond ((member pixel-scale '(:from-wcs :from-fits))
 	 (or
@@ -166,16 +173,16 @@ the directory path even if does not exist."
 	  (if (eq pixel-scale :from-fits)
 	      (ignore-errors (instrument-id:get-pixel-scale-for-fits
 			      fits-file
-			      ;; this extension starts at zero
-			      :extension (+ 1 zb-extension))))
+			      :extension extension)))
 	  (wcs:get-pixel-scale-for-wcs
 	   (or (cf:read-wcs
 		fits-file
 		:extension
-		(if inst
-		    (instrument-id:get-image-extension-for-onechip-fits
-		     fits-file)
-		    1)) ;; if we can't identify this instrument, try extension 1
+		(or extension
+		    (if inst
+			(instrument-id:get-image-extension-for-onechip-fits
+			 fits-file)
+			1))) ;; if we can't identify this instrument, try extension 1
 	       (error
 		"WCS not found in ~A but PIXEL-SCALE=~A"
 		fits-file pixel-scale)))))
@@ -236,7 +243,7 @@ the directory path even if does not exist."
 (defun run-sextractor
     (fits-file 
      &key
-       (extension nil)
+       (extension nil) ;; now cfitsio-compatible 1-based
        (output t) (display-errors t)
        (output-catalog "sex.cat")
        (conf-suffix "") ;;additional suffix to add to conf files 
@@ -269,10 +276,9 @@ the directory path even if does not exist."
   "Run sextractor on FITS-FILE (eg foo.fits) and leave file
 sex.cat in foo.DIR/sex.cat.
 
-EXTENSION is traditional image extension, which starts at 0
-To get image.fits[0], use EXTENSION=0.
-Note that other code in cfitsio uses HDU-NUM for the extension, and
-HDU-NUM starts at 1.
+EXTENSION is cfitsio style image extension, which starts at 1
+To get image.fits[0], use EXTENSION=1.
+This is a change from past behavior.
 
 By default, PIXEL-SCALE is :FROM-WCS, so sextractor will try to determine
 the pixel scale from the wcs.
@@ -280,25 +286,26 @@ the pixel scale from the wcs.
 Uses an MD5 signature based on input fits and config files to avoid
 re-running sextractor unless :MD5-AVOID-RERUN is disabled."
   (multiple-value-bind (dir base parent-dir shortbase)
-      (ensure-fits-directory fits-file)
-    (declare (ignorable base parent-dir shortbase))
+      (ensure-fits-directory fits-file :extension extension)
+    (declare (ignorable base parent-dir shortbase)
+	     (type (or null (integer 1)) extension))
     (when (and weight-image make-badpix-weight-image)
       (error "Cannot specify both WEIGHT-IMAGE and MAKE-BADPIX-WEIGHT-IMAGE"))
     (let* ((inst (instrument-id:identify-instrument fits-file)) ;; use it if it is there
+	   ;; from [0] based to [1] based
 	   (full-fits-file ;; fits plus extension, if given
  	     (concatenate 
 	      'string fits-file
-	      (if extension (format nil "[~A]" extension) "")))
-	   (extension/zb ;; zero-based extension
+	      ;; note conversion of [1] to [0]
+	      (if extension (format nil "[~A]" (1- extension)) "")))
+	   (extension/hdu ;; [1] based as is now standar
 	     (or extension
 		 (if (typep inst 'instrument-id:onechip)
-		     (1-
-		      (the (integer 0)
-			   (instrument-id:get-image-extension-for-onechip-fits fits-file))))
-		 0)) ;; ZERO extension by default
-	   (extension/hdu (1+ extension/zb)) ;; HDU=1,2,3 format
+		     (the (integer 1)
+			  (instrument-id:get-image-extension-for-onechip-fits fits-file)))
+		 1)) ;; [1] extension by default
 	   (pixel-scale
-	     (%get-pixel-scale-for-sextractor fits-file inst extension/zb pixel-scale))
+	     (%get-pixel-scale-for-sextractor fits-file inst extension/hdu pixel-scale))
 	   (param-filename (format nil "~A/sex~A.param" dir conf-suffix))
 	   (conv-filename (format nil "~A/sex~A.conv" dir conf-suffix))
 	   (nnw-filename (format nil "~A/sex~A.nnw" dir conf-suffix))
@@ -312,7 +319,7 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
 			 gain)
 			(inst
 			 (instrument-id:get-gain-for-instrument
-			  inst fits-file))
+			  inst fits-file :extension extension/hdu))
 			((stringp gain)
 			 (or (cf:read-fits-header fits-file gain :extension extension/hdu)
 			     (error "Could not read GAIN keyword '~A' from ~A"
@@ -365,7 +372,7 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
       ;; always compute signature, because it MAY be used to check
       ;; for need to re-run, and WILL be put in output
       (setf md5-signature (%compute-sextractor-run-md5
-			   fits-file extension/zb param-filename conf-filename conv-filename 
+			   fits-file extension/hdu param-filename conf-filename conv-filename 
 			   nnw-filename make-badpix-weight-image))
       ;;
       (setf old-output-exists-using-md5 
@@ -389,7 +396,9 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
 	       :error (if display-errors t nil) ))
 	  ;;
 	  (when flag-cosmic-rays
-	    (sextractor-insert-cosmic-rays-into-imflags fits-file catalog-filename))
+	    (sextractor-insert-cosmic-rays-into-imflags fits-file 
+							catalog-filename
+							:extension extension/hdu))
 	  ;;
 	  (cf:write-fits-header catalog-filename "SEXTRMD5" md5-signature
 				:comment "sextractor config md5 signature")
@@ -413,8 +422,9 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
   
 
 (defun run-scamp
-    (fits-file &key 
-		 (output t) ;; FIXME - output should be *standard-out*?
+    (fits-file &key
+		 (extension nil)
+		 (output *standard-output*)
 		 (sextractor-catalog-base "sex") ;; for "sex.cat"
 		 (xml-filename "scamp.xml")
 		 (conf-suffix "") 
@@ -434,6 +444,7 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
 		 (scamp-save-refcatalog "N")
 		 (match-flipped "N") ;; allow flipped axes
 		 (distort-degrees 1)
+		 (flags-mask #x0fc) ;; default; reject saturated and corrupted
 		 (fwhm-threshold-low 1.0)
 		 (fwhm-threshold-high 40.0)
 		 (checkplot-dev "NULL") ;; none
@@ -453,7 +464,7 @@ be used further."
     
   
   (multiple-value-bind (dir base topdir)
-      (ensure-fits-directory fits-file)
+      (ensure-fits-directory fits-file :extension extension)
     (let ((catalog-filename
 	    (format nil "~A/~A.cat" dir sextractor-catalog-base))
 	  (scamp-conf-filename (format nil "~A/scamp~A.conf" dir conf-suffix))
@@ -486,6 +497,7 @@ be used further."
        :crossid-radius crossid-radius
        :match-flipped  match-flipped
        :distort-degrees distort-degrees
+       :flags-mask flags-mask
        :fwhm-threshold-low fwhm-threshold-low
        :fwhm-threshold-high fwhm-threshold-high
        :verbose-type verbose-type)

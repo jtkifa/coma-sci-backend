@@ -34,6 +34,19 @@
   (a2  0d0 :type double-float)   ;; tangential non-grav accel, AU/DAY^2
   (a3  0d0 :type double-float))  ;; normal     non-grav accel, AU/DAY^2
 
+
+;; universal elements in the manner of SLALIB
+;; a 13 element vector:
+;;  0    Combined mass in solar units
+;;  1    energy, 1/a
+;;  2    Reference epoch t0 in JD
+;;  3,4,5  Position vector at t0 in AU
+;;  6,7,8  Velocity vector at t0, in AU/sec
+;;  9    Distance from Sun at t0, ini AU
+;;  10   r dot v at t0
+;;  11   specific angular momentum
+;;  12   Basically, timestamp it was last called.  Apparently, a fossil.
+;;       Probably, we don't even let SLALIB change it.         
 (defstruct univ-elem
   (id nil)
   (velem (make-array 13 :element-type 'double-float)

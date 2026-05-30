@@ -284,7 +284,7 @@
 	   (RETURN-WITH-ERROR "NO-PARAMETERS" "No PARAMETERS provided."))
 	 (set-param "TYPE" "PARAMETERS")
 	 (multiple-value-bind (%ok-ret %err)
-	     (ignore-errors
+	     (bt-ignore-errors
 	      (progn ,@json-body t)) ;; return TRUE if ,@body doesn't fail
 	   (when (not %ok-ret)
 	     (return-with-error "INTERNAL-JSON-FUNCTION-ERROR"

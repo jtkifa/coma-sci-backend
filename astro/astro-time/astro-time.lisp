@@ -582,7 +582,9 @@ UT at 1900"
 
 
 (eval-when (:load-toplevel)
-  (let ((next-ut #.(encode-universal-time 0 0 0 1 1 2026 0)))
+  (let ((next-ut #.(encode-universal-time 0 0 0 1
+					  7 2026  ;; 1 or 7
+					  0)))
   (when (>= (get-universal-time) next-ut)
     (format t "~%WARNING: - ASTRO-TIME PACKAGE - you may need to
  update TAI-MINUS-UTC for the latest leap second using data from
@@ -607,7 +609,7 @@ See ftp://maia.usno.navy.mil/ser7/tai-utc.dat for new leap seconds."
 	     (error "MJDUT before 1960 and ALLOW-UTC-BEFORE-1960 keyword not set."))
 	  ;;
 	  ;; https://en.wikipedia.org/wiki/Leap_second
-	  ;; nothing on 2017 Jul, 2018 Jan, 2018 Jul...2021, 2022, 2023..
+	  ;; nothing on 2017 Jul to 2026 Jan
 	  ((>= mjdutc 57754.0d0) (setf dt 37.0d0)) ; 2017 Jan  1 
 	  ((>= mjdutc 57204.0d0) (setf dt 36.0d0)) ; 2015 July 1
 	  ((>= mjdutc 56109.0d0) (setf dt 35.0d0)) ; 2012 July 1

@@ -32,8 +32,8 @@ Contain all astorb orbits, plus all comet orbits, in a single vector
   
 
 (defun initialize-orbit-elements (&key (force-redo nil) (shuffle t))
-  (astorb:get-the-astorb)
   (when (or force-redo (not *orbit-element-vector*))
+    (astorb:get-the-astorb) ;; will throw an error if no astorb database loaded
     (let ((comet-list (read-comet-elements))
 	  (astorb-list
 	    (loop for i below (astorb:astorb-n astorb:*the-astorb*)
@@ -52,7 +52,10 @@ Contain all astorb orbits, plus all comet orbits, in a single vector
   
     (length *orbit-element-vector*))
 
-;; Commented out for Docker build - depends on ASTORB which is loaded at runtime
-;; (eval-when (:load-toplevel)
-;;   (initialize-orbit-elements))
+
+;; it may be true that astorb is loaded, but not the giant
+;; database.  In this case, don't force initialization.
+(eval-when (:load-toplevel)
+  (when astorb:*the-astorb* 
+    (initialize-orbit-elements)))
 

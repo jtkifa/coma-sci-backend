@@ -337,7 +337,7 @@
   
   (terapix:run-sextractor  
    fits
-   :extension extension ;; sextractor package now uses 1-based HDU numbering
+   :extension extension
    :output nil :display-errors nil  
    :output-catalog sextractor-catalog 
    :gain gain  :deblend-mincont deblend-mincont
@@ -352,7 +352,7 @@
    '(("OBJECTS" "sextractor_OBJECTS.fits")))
   
   
-  (let ((shash (terapix:read-sextractor-catalog  
+  (let ((shash (terapix:read-sextractor-catalog 
 		(format nil "~A/~A" (terapix:get-fits-directory fits :extension extension)
 			sextractor-catalog)
 		:extra-columns extra-sextractor-params))

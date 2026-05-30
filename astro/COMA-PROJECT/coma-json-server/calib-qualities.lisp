@@ -96,11 +96,14 @@
 						""))))
 	       (terapix:run-sextractor fits-file
 				       :mag-zeropoint zp
-				       :extension (1- extension)
+				       :extension extension
 				       :md5-avoid-rerun t
 				       :output-catalog output-cat-name)
 	       (terapix:read-sextractor-catalog
-		(format nil "~A/~A" fits-dir output-cat-name))))))
+		(format nil "~A/~A" (terapix:get-fits-directory
+				     fits-file
+				     :extension extension)
+			output-cat-name))))))
     ;;
     ;; if we have wcs-cat, adjust the magnitude in every slot that is "MAG" but not "ERR"
     (when wcs-cat

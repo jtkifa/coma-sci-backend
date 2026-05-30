@@ -322,13 +322,19 @@ filename.gz if filename not present, for transparent use of fz files."
 				       &body body)
   "(MAYBE-WITH-OPEN-FITS-FILE (FITS FFVAR &KEY MODE THROW-ERROR)   opens FITS
 if it is a filename, but if it is a fits file structure merely continues as long
-as the MODE is acceptable (:INPUT is OK with already being opened as :IO)"
+as the MODE is acceptable (:INPUT is OK with already being opened as :IO).
+
+The extension is always reset to the first one with
+WITH-FITS-EXTENSION, to ensure similar behavior between fresh open and reuse
+of an open FITS-FILE device."
   (let ((fits-var (gensym "fits-"))
 	(temporary-ffvar (gensym "ffvar-temp-")))
     `(let ((,fits-var ,fits)
 	   ;; create variable ffvar so that (do-maybe-with-open-fits-file-body) sees it
 	   (,ffvar nil))
-       (flet ((do-maybe-with-open-fits-file-body () ,@body))
+       (flet ((do-maybe-with-open-fits-file-body ()
+		(with-fits-extension (,ffvar 1)
+		  ,@body)))
 	 (cond ((or (typep ,fits-var 'string)
 		    (typep ,fits-var 'pathname))
 		(with-open-fits-file (,fits-var ,temporary-ffvar :mode ,mode :throw-error ,throw-error)

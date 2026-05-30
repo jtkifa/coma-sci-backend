@@ -62,10 +62,28 @@
 
 (def-json-command make-stamp (json-req)
   (with-json-command-setup (json-req)
-    (let* ((fits-file (get-param "FITS-FILE" :required t))
+    (let* ((fits-file (let ((file (get-param "FITS-FILE" :required t)))
+			(when (not (probe-file file))
+			  (return-with-error "FITS-FILE-NOT-FOUND" (format nil "Fits file ~A not found" file)))
+			file))
+	   (instrument (or (ignore-errors (instrument-id:identify-instrument fits-file))
+			   (return-with-error "CANNOT-IDENTIFY-FITS-FILE"
+					      (format nil "INSTRUMENT-ID cannot identify instrument of ~A" fits-file))))
 	   ;; if extension=NIL then use the default single-image
 	   ;; extension, or the first finite image extension
-	   (extension  (get-param "EXTENSION" :default nil))
+	   (extension  (or
+			(or (get-param "EXTENSION" :default nil)
+			    (cond ((typep instrument 'instrument-id:multichip)
+				   (return-with-error
+				    "NO-EXTENSION-FOR-MULTICHIP-FITS-FILE"
+				    (format nil "EXTENSION not provided but fits file ~A is MULTIPCHIP" fits-file)))
+				  ((typep instrument 'instrument-id:onechip)
+				   (instrument-id:get-image-extension-for-onechip-fits fits-file))
+				  (t nil)))
+			(return-with-error
+			 "UNABLE-TO-GET-FITS-EXTENSION"
+			 (format nil "Unable to get extension for stamp creation for ~A.  The EXTENSION must be given for a MULTIPCHIP fits file, but it can be computed by MAKE-STAMP for a ONECHIP file.  Report this issue." fits-file))))
+			   
 	   (stamp-file  (get-param "STAMP-FILE" :required t))
 	   (stamp-type  (get-param "STAMP-TYPE" :default "pdf"))
 	   (stamp-center (get-param "STAMP-CENTER"))
@@ -124,11 +142,6 @@
 	  (get-orbit-using-method
 	   json-orbit object-name :mjd mjd)))
 	     
-      ;;
-      (when (not (probe-file fits-file))
-	(return-with-error
-	 "FITS-FILE-NOT-FOUND"
-	 (format nil "Fits file ~A not found" fits-file)))
       ;;
       (when (and json-orbit (not orbit))
 	(return-with-error

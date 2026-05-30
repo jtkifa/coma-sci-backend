@@ -359,15 +359,19 @@ As a sanity check, the mode and median should be compared."
 	     (length fwhm-star-vec))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun sextractor-insert-cosmic-rays-into-imflags (fits catalog-file)
-  "Mark cosmic rays in CATALOG column IMAFLAGS_ISO with +cosmic-ray-flag+"
+(defun sextractor-insert-cosmic-rays-into-imflags (fits catalog-file &key extension)
+  "Mark cosmic rays in CATALOG column IMAFLAGS_ISO with +cosmic-ray-flag+.  Extension
+is normal [1]-based scheme."
   (let* ((hash (read-sextractor-catalog catalog-file))
 	 (xpix-vec (gethash "XPEAK_IMAGE" hash)) ;; use peak for cosmics
 	 (ypix-vec (gethash "YPEAK_IMAGE" hash))
 	 (flag-vec (gethash "FLAGS" hash))
 	 (imsec (cf:read-image-section
 		 fits
-		 :extension (instrument-id:get-image-extension-for-onechip-fits fits)))
+		 :extension
+		 (or extension
+		     (instrument-id:get-image-extension-for-onechip-fits fits))))
+		
 	 (img (cf:image-section-data imsec)))
     (loop with scratch = (make-array 121 :element-type 'single-float)
 	  for i from 0

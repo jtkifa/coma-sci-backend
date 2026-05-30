@@ -11,7 +11,9 @@ and flips.
 
 
 (defun scan-ez-astrometry (fits-file ra dec
-			   &key (min-pixel-scale 0.1)
+			   &key
+			     (extension nil)
+			     (min-pixel-scale 0.1)
 			     (position-maxerr 2.0) ;; arcmin
 			     (posangle-maxerr 8.0)
 			     (max-pixel-scale 3.0)
@@ -26,8 +28,10 @@ WCS fitting in pixel-scale and rotation angle, allowing reflections."
   (let* ((fbase (file-io:file-basename fits-file))
 	 (astrometry-catalog-file (format nil "~A.ezscan.cat" fbase))
 	 (work-file (format nil "~A_WORK.fits" fbase))
-	 (naxis1 (cf:read-fits-header fits-file "naxis1"))
-	 (naxis2 (cf:read-fits-header fits-file "naxis2"))
+	 (naxis1 (cf:read-fits-header fits-file "naxis1"
+				      :extension extension))
+	 (naxis2 (cf:read-fits-header fits-file "naxis2"
+				      :extension extension))
 	 ;; max size of image in arcsec
 	 (rmax (+ (* (max naxis1 naxis2) 0.5 max-pixel-scale)
 		  (* 60 position-maxerr)))
@@ -71,6 +75,7 @@ WCS fitting in pixel-scale and rotation angle, allowing reflections."
 			(multiple-value-bind (wcs nstars rms)
 			    (ignore-errors
 			     (do-linear-astrometry work-file
+			       :extension extension
 			       :write-wcs t
 			       :match-flipped "Y"
 			       :nstars-min nstars-min

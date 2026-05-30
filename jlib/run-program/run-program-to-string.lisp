@@ -35,8 +35,11 @@ Returns (VALUES PROCESS-EXIT-CODE OUTPUT-STRING)
 		      with nbytes of-type fixnum = 0
 		      do
 			 ;; keep getting chars until we can't
-			 (loop until (not (listen in-stream))
-			       for c = (read-char in-stream nil nil)
+			 (loop ;until (not (listen in-stream))
+			       ;; LISTEN caused a stack exhaustion, but READ-CHAR-NO-HANG
+			       ;; works - perhaps an SBCL bug (on arm64?)
+			       for c = (read-char-no-hang in-stream nil nil)
+			       while c 
 			       do (write-char c sout)
 				  (incf nbytes 1))
 			 ;; when done, return

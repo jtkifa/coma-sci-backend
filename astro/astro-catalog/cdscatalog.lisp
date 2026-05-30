@@ -38,6 +38,16 @@ It could probably also give a list of pointings at once.
 
 (in-package astro-catalog)
 
+;; output which site we're querying, and now, for diagnostics
+(defvar *vizquery-verbose* nil) ;; can be NIL, T, stream
+
+(defun vizquery-mesg (format-string &rest format-args)
+  (when *vizquery-verbose*
+    (let ((stream (if (eq *vizquery-verbose* t)
+		      *standard-output*
+		      *vizquery-verbose*)))
+    (apply 'format stream format-string format-args)
+    (terpri stream))))
 
 (defparameter *vizquery-program* 
   (or (pconfig:get-config "ASTRO-CATALOG:VIZQUERY-PROGRAM")
@@ -65,7 +75,7 @@ It could probably also give a list of pointings at once.
 				     "cambridge" "beijing" "moscow"))
   
 
-(defparameter *vizquery-timeout* 180)
+(defparameter *vizquery-timeout* 60)
 
 (defun %run-program (program argument-list)
   (run-program:run-program-to-string  
@@ -188,8 +198,11 @@ It could probably also give a list of pointings at once.
 	    "-mime=csv"
 	    (format nil "-source=~A" source)
 	    (format nil "-site=~A" vizquery-site))))
+    (vizquery-mesg  "Starting vizquery call to site ~A with args ~A"
+		    vizquery-site vizquery-args)
     (multiple-value-bind (retval string)
 	(%run-program *vizquery-program* vizquery-args)
+      (vizquery-mesg "Done call to site ~A" vizquery-site)
       (cond ((not (zerop retval))
 	     (error "Error calling ~A ~A - shell returned ~A" vizquery-program vizquery-args retval))
 	    ((not (char= (aref string 0) #\#))
@@ -276,7 +289,7 @@ It could probably also give a list of pointings at once.
 ;; or (VALUES NIL ERROR) on error
 
 (defparameter *sitelock* (bordeaux-threads:make-lock "cds-sitelock"))
-(defparameter *last-good-site* *vizquery-site*)
+(defparameter *last-good-site* nil)
 
 
 
@@ -314,8 +327,10 @@ It could probably also give a list of pointings at once.
   (loop 
     with data-vec = nil and error-or-keys = nil ;;
     ;; loop across sites favoring the last site that worked
-    for site in (cons (bordeaux-threads:with-lock-held (*sitelock*) *last-good-site*)
-		      (remove *last-good-site* vizquery-site-list  :test 'equalp))
+    for site in (bordeaux-threads:with-lock-held (*sitelock*)
+		  (remove nil
+			  (cons  *last-good-site*
+				 (remove *last-good-site* vizquery-site-list  :test 'equalp))))
     do (multiple-value-setq (data-vec error-or-keys)
 	 (ignore-errors
 	   (run-vizquery-and-parse ra dec rad/arcmin source field-descs 

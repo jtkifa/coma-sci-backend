@@ -39,7 +39,7 @@ WCS header dictionary
 			 (cf:read-fits-header ff "COMA.WCS.CATALOG"))
 		   (let ((wcs (cf:read-wcs ff)))
 		     (setf (gethash "WCS-PIXEL-SCALE" h)
-			   (ignore-errors (wcs:get-pixel-scale-for-wcs wcs)))
+			   (bt-ignore-errors (wcs:get-pixel-scale-for-wcs wcs)))
 		     (setf (gethash "WCS" h)
 			   (hashify-wcs wcs))))
 	  h)))))
@@ -108,7 +108,7 @@ WCS header dictionary
       
       (cf:write-fits-header
        ff "COMA.WCS.NORDER"
-       (or (ignore-errors (%compute-wcs-order wcs))
+       (or (bt-ignore-errors (%compute-wcs-order wcs))
 	   1)
        :comment "WCS order for ext calib"))
     ;;
@@ -120,7 +120,7 @@ WCS header dictionary
    
 	
   
-
+ 
 (defun %calib-fit-wcs (json-resp fits-file &key extension wcs-catalog
 					     wcs-fit-norder
 					     redo-wcs-fit-p wcs-rms-max
@@ -157,9 +157,9 @@ WCS header dictionary
 	
 
 	(multiple-value-bind (wcs nstars/err rmsfit)
-	    (ignore-errors
+	    (bt-ignore-errors
 	     (terapix:do-nonlinear-astrometry fits-file
-	       :extension (- extension 1) ;; zero based for terapix
+	       :extension extension
 	       :nstars-min wcs-nstars-min
 	       :astref-catalog wcs-catalog
 	       :rms-max wcs-rms-max

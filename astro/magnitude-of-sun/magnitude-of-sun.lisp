@@ -51,6 +51,9 @@ https://arxiv.org/pdf/1804.07788.pdf
     ;; only as good as approximate PS1 to ATLAS conversion from Tonry 2018
     (:catlas -26.7462 -26.7389 -26.7286)
     (:oatlas -27.2234 -26.9912 -26.5019)
+    ;; Casagrande & VandenBerg 2018, MNRAS Letters 479 L102
+    (:gaia-g -26.895  -26.792 nil)
+    
     ;; the others are probably not useful
     ))
 
@@ -65,24 +68,34 @@ FILTER must be one of the following (or string-equal to it):
      :USDSS :GSDSS :RSDSS :ISDSS :ZSDSS
      :CATLAS :OATLAS)
 and SYSTEM must be one of (:VEGA :AB :ST)
-and MAG-TYPE must be one of (:ABSOLUTE :APPARENT), :APPARENT by default."
+and MAG-TYPE must be one of (:ABSOLUTE :APPARENT), :APPARENT by default.
+
+
+"
   (when (not (member system '(:ab :vega :st)))
     (error "SYSTEM must be one of :AB, :VEGA, or :ST"))
   (when (not (member mag-type '(:absolute :apparent)))
     (error "MAG-TYPE  must be :ABSOLUTE or :APPARENT"))
-  (let ((mag-list (or (assoc filter *sunmag-table* :test 'string-equal)
-		      (error "Filter ~A unknown - must be one of ~A"
-			     filter (mapcar 'car *sunmag-table*))))
-	(adj (if (eq mag-type :absolute)
-		 31.5721
-		 0.0)))
-    (+ adj
-       (cond ((eq system :vega)
+  (let* ((mag-list (or (assoc filter *sunmag-table* :test 'string-equal)
+		       (error "Filter ~A unknown - must be one of ~A"
+			      filter (mapcar 'car *sunmag-table*))))
+	 (adj (if (eq mag-type :absolute)
+		  31.5721
+		  0.0))
+	 (mag
+	   (cond ((eq system :vega)
 	      (second mag-list))
 	     ((eq system :ab)
 	      (third mag-list))
 	     (t
-	      (fourth mag-list))))))
+	      (fourth mag-list)))))
+    ;;
+    (when (not mag) ;; some flavors (like ST) may be undefined
+      (error "Solar mag in magnitude system ~A is unknown for filter ~A.  This is a gap in the conversion table."
+	     system filter))
+	   
+    (+ adj
+       mag)))
     
     
      

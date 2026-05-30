@@ -1,15 +1,13 @@
 (defpackage observatories
   (:use #:cl)
-  (:export
+  (:export 
    #:make-observatory
    #:observatory #:observatory-p  #:observatory-id
    #:observatory-name  #:observatory-obscode
    #:observatory-wlongitude  #:observatory-latitude  #:observatory-altitude
    #:observatory-timezone
-   #:*obs-list*
-   #:get-observatory
-   #:fill-obs-hash ; Export for runtime initialization
-   ))
+   #:*obs-list* 
+   #:get-observatory))
  
 
 

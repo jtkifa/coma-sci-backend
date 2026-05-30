@@ -12,33 +12,31 @@
 
   (on-error-delete-file ;; ensure a bad bias is deleted
       bias-fits
-      (cond ((not (reduction-plan-trim reduction-plan))
-	   (zerocombine fits-list bias-fits 
-			:reduction-plan reduction-plan))
-	  (t
-	   (let ((fits-list-trimmed
-		   (mapcar (lambda (fits)
-			     (modify-fits-name 
-			      fits 
-			      :suffix "t" 
-			      :new-dir (reduction-plan-target-dir reduction-plan)))
-			   fits-list)))
-	     (loop 
-	       for fits in fits-list
-	       for fits-trimmed in fits-list-trimmed
-	       do
-		  (when (not (probe-file fits-trimmed))
-		    (trim-image 
-		     fits 
-		     fits-trimmed  
-		     :trimsec (reduction-plan-trimsec reduction-plan))))
-	     ;;
-	     (zerocombine 
-	      fits-list-trimmed bias-fits
-	      :reduction-plan reduction-plan)
-	     (when (reduction-plan-delete-intermediate-files reduction-plan)
-	       (dolist (fits-trimmed fits-list-trimmed)
-		 (delete-file fits-trimmed)))))))
+    (cond ((not (or (reduction-plan-trim reduction-plan)
+		    (reduction-plan-overscan-subtract reduction-plan)))
+	     (zerocombine fits-list bias-fits 
+			  :reduction-plan reduction-plan))
+	    (t ;; trim and/or overscan-sub
+	     (let ((fits-list-trimmed
+		     (mapcar (lambda (fits)
+			       (modify-fits-name 
+				fits 
+				:suffix "t" 
+				:new-dir (reduction-plan-target-dir reduction-plan)))
+			     fits-list)))
+	       (loop 
+		 for fits in fits-list
+		 for fits-trimmed in fits-list-trimmed
+		 do
+		    (when (not (probe-file fits-trimmed))
+		      (trim/os-image fits fits-trimmed reduction-plan)))
+	       ;;
+	       (zerocombine 
+		fits-list-trimmed bias-fits
+		:reduction-plan reduction-plan)
+	       (when (reduction-plan-delete-intermediate-files reduction-plan)
+		 (dolist (fits-trimmed fits-list-trimmed)
+		   (delete-file fits-trimmed)))))))
   t) ;; return T on non-error
 
 

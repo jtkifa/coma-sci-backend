@@ -1,0 +1,49 @@
+,,Absolute,Apparent,
+system,filter,M_sun_AB,m_sun,reference
+Johnson,U,6.33,-25.24,Willmer 2018 Table 3 (Johnson_U)
+Johnson,B,5.31,-26.26,Willmer 2018 Table 3 (Johnson_B)
+Johnson,V,4.80,-26.77,Willmer 2018 Table 3 (Johnson_V)
+Johnson,R,NA,,Not tabulated separately in Willmer 2018; Willmer uses Cousins_R for the red Johnson-Cousins extension
+Johnson,I,NA,,Not tabulated separately in Willmer 2018; Willmer uses Cousins_I for the red Johnson-Cousins extension
+Cousins,U,NA,,"Not tabulated separately in Willmer 2018; Cousins is treated as the R_C/I_C extension, not a distinct U/B/V system"
+Cousins,B,NA,,"Not tabulated separately in Willmer 2018; Cousins is treated as the R_C/I_C extension, not a distinct U/B/V system"
+Cousins,V,NA,,"Not tabulated separately in Willmer 2018; Cousins is treated as the R_C/I_C extension, not a distinct U/B/V system"
+Cousins,R,4.60,-26.97,Willmer 2018 Table 3 (Cousins_R)
+Cousins,I,4.51,-27.06,Willmer 2018 Table 3 (Cousins_I)
+SDSS,u,6.39,-25.18,Willmer 2018 Table 3 (SDSS_u)
+SDSS,g,5.11,-26.46,Willmer 2018 Table 3 (SDSS_g)
+SDSS,r,4.65,-26.92,Willmer 2018 Table 3 (SDSS_r)
+SDSS,i,4.53,-27.04,Willmer 2018 Table 3 (SDSS_i)
+SDSS,z,4.50,-27.07,Willmer 2018 Table 3 (SDSS_z)
+DES,u,6.14,-25.43,Willmer 2018 Table 3 (DES_u)
+DES,g,5.05,-26.52,Willmer 2018 Table 3 (DES_g)
+DES,r,4.61,-26.96,Willmer 2018 Table 3 (DES_r)
+DES,i,4.52,-27.05,Willmer 2018 Table 3 (DES_i)
+DES,z,4.50,-27.07,Willmer 2018 Table 3 (DES_z)
+DES,Y,4.50,-27.07,Willmer 2018 Table 3 (DES_Y)
+PS1,g,5.03,-26.54,Willmer 2018 Table 3 (PS1_g)
+PS1,r,4.64,-26.93,Willmer 2018 Table 3 (PS1_r)
+PS1,i,4.52,-27.05,Willmer 2018 Table 3 (PS1_i)
+PS1,z,4.51,-27.06,Willmer 2018 Table 3 (PS1_z)
+PS1,Y,4.50,-27.07,Willmer 2018 Table 3 (PS1_Y)
+PS1,w,4.71,-26.86,"Willmer solar-magnitude page, same Bohlin/Haberreiter procedure (PS1_w)"
+CFHT MegaCam,g,5.03,-26.54,Willmer 2018 Table 3 (cfhtls_g)
+CFHT MegaCam,r,4.64,-26.93,Willmer 2018 Table 3 (cfhtls_r)
+CFHT MegaCam,i,4.52,-27.05,Willmer 2018 Table 3 (cfhtls_i)
+CFHT MegaCam,z,4.51,-27.06,Willmer 2018 Table 3 (cfhtls_z)
+LSST,u,6.27,-25.30,Willmer 2018 Table 3 (LSST_u)
+LSST,g,5.06,-26.51,Willmer 2018 Table 3 (LSST_g)
+LSST,r,4.64,-26.93,Willmer 2018 Table 3 (LSST_r)
+LSST,i,4.52,-27.05,Willmer 2018 Table 3 (LSST_i)
+LSST,z,4.51,-27.06,Willmer 2018 Table 3 (LSST_z)
+LSST,y,4.50,-27.07,Willmer 2018 Table 3 (LSST_y)
+Bessell,U,6.34,-25.23,Willmer 2018 Table 3 (Bessell_Murphy_U)
+Bessell,B,5.33,-26.24,Willmer 2018 Table 3 (Bessell_Murphy_B)
+Bessell,V,4.81,-26.76,Willmer 2018 Table 3 (Bessell_Murphy_V)
+Bessell,R,4.61,-26.96,Willmer 2018 Table 3 (Bessell_Murphy_R)
+Bessell,I,4.52,-27.05,Willmer 2018 Table 3 (Bessell_Murphy_I)
+Gaia,G,4.78,-26.79,"Casagrande & VandenBerg 2018, MNRAS Letters 479 L102, Table 1 (Sun, AB, Gaia-pro/rev: apparent G_AB ‚âà -26.792; absolute G_AB = 4.78)"
+ATLAS,c,4.84,-26.73,"Approximation from Tonry et al. 2018 / Erasmus et al. 2021 describing ATLAS c as ~g+r, combined with Willmer 2018 PS1 g=5.03 and r=4.64, averaged to 4.84"
+ATLAS,o,4.58,-26.99,"Approximation from Tonry et al. 2018 / Erasmus et al. 2021 describing ATLAS o as ~r+i, combined with Willmer 2018 PS1 r=4.64 and i=4.52, averaged to 4.58"
+ATLAS,c,4.86,-26.71,using digitized ATLAS throughput with the Colina-Bohlin-Castelli solar spectrum
+ATLAS,o,4.59,-26.98,using digitized ATLAS throughput with the Colina-Bohlin-Castelli solar spectrum

@@ -46,11 +46,14 @@
   (let* ((read-type :float)
 	 (saturation-val (float saturation-val 1.0))
 	 (output-null-val (float output-null-val 1.0))
+	 (extnum (cf:fits-file-current-hdu-num ff-out))
 	 (gain (if normalize-gain
 		   (float (or
-			   (instrument-id:get-gain-for-fits ff-out)
-			   (error "Cannot get gain for ~A"
-				  (cf:fits-file-filename ff-out)))
+			   (instrument-id:get-gain-for-fits
+			    ff-out
+			    :extension extnum)
+			   (error "Cannot get gain for ~A[~A]"
+				  (cf:fits-file-filename ff-out) extnum))
 			  1.0)
 		   1.0))
 	 (do-bias (and ff-bias
@@ -160,6 +163,12 @@
       (instrument-id:set-standard-header ff-out :flattened "YES"
 					 :extension (cf:fits-file-current-hdu-num ff-out)))
 
+    ;; write gain as IMRED.GAIN (even though we modify original below)
+    (cf:write-fits-header ff-out "IMRED.GAIN"
+			  (if normalize-gain 1.0 gain)
+			  :extension nil  
+			  :comment "Final gain of image after imred.")
+     
     (when (and normalize-gain (not (= gain 1)))
       (cf:write-fits-header ff-out "IMRED.OLDGAIN" gain :comment "Old gain value")
       (instrument-id:write-gain-for-fits ff-out 1.0 :extension nil) ;; current ext
@@ -182,8 +191,9 @@
 		  (never-normalize-gain nil)		
 		  (if-exists :error))
 
-  "Trim, debias, and flatten an image.  TRIM is T/NIL, and FLAT and
-BIAS specify fits files."
+  "Trim, debias, and flatten an image.
+
+FLAT and BIAS specify fits files."
 
   (declare (type (member :error :supersede) if-exists))
 
@@ -205,7 +215,7 @@ BIAS specify fits files."
 	(flat (if flat (fullfile flat)))
 	;;
 	(trim (reduction-plan-trim reduction-plan))
-	(trimsec (reduction-plan-trimsec reduction-plan))
+	(overscan-subtract (reduction-plan-overscan-subtract reduction-plan))
 	(normalize-gain
 	  (if never-normalize-gain ;; we're doing a flat, probably, and
 	      nil                  ;; we want the bounds to be in ADU
@@ -225,10 +235,10 @@ BIAS specify fits files."
     (with-temporary-output-file (fits-out fits-out-tmp :extra-suffix "_TMP")
       ;; maybe trim, otherwise copy fits to fits-out-tmp - all work will be
       ;; with fits-out-tmp
-      (cond (trim
-	     (trim-image fits fits-out-tmp 
-			 :type :float :if-exists :supersede
-			 :trimsec trimsec))
+      (cond ((or trim overscan-subtract)
+	     ;; do them together to avoid another intermediate file
+	     (trim/os-image fits fits-out-tmp reduction-plan
+			    :write-type :float :if-exists :supersede))
 	    (t
 	     (copy-image fits fits-out-tmp :type :float :if-exists :supersede)))
   
@@ -268,9 +278,13 @@ BIAS specify fits files."
 			      (reduction-plan-saturation-value reduction-plan) 
 			      (reduction-plan-invalid-pixel-function reduction-plan)
 			      (reduction-plan-output-null-pixel-value reduction-plan) 
-			      normalize-gain))))))))
-      
-	  (when ff-flat (cf:close-fits-file ff-flat))
-	  (when ff-bias (cf:close-fits-file ff-bias)))))))
+			      normalize-gain))))
+		     ;; IMRED.CCDPROC is flag that this output fits was processed by this package 
+		     (cf:write-fits-header fits-out-tmp "IMRED.CCDPROC" t :comment "CCDPROC'ed by IMRED Lisp pkg")
+		     ))))
+
+	  (progn
+	    (when ff-flat (cf:close-fits-file ff-flat))
+	    (when ff-bias (cf:close-fits-file ff-bias))))))))
  
 	   

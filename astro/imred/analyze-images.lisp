@@ -13,14 +13,15 @@
   (reduce-p nil) ;; T if this extension is to be reduced (NIL for
 		 ;; tables and empty images)
   (image-size nil) ;; actual size of array
-  (image-type nil) 
+  (image-type nil) ;; :float, etc
   (object-type nil)  ;; BIAS, etc
   (flat-group nil)   ;; identifer for flat type, eg filter name
   (fringe-group nil) ;; identifer for fringe type, eg filter name
   (gain nil)
   ;;
   (trimsec nil)
-  (statsec nil))
+  (statsec nil)
+  (overscans nil))
   
   
 
@@ -61,14 +62,17 @@
   (let* ((is-image-ext
 	   (and (eq (cf:fits-file-current-hdu-type ff) :image)
 		(eql (cf:fits-file-current-image-ndims ff) 2)))
+	 (extnum (cf:fits-file-current-hdu-num ff))
 	 (trimsec (when is-image-ext
-		    (%get-trimsec-at-extension ff (reduction-plan-trimsec reduction-plan)
-					       (cf:fits-file-current-hdu-num ff))))
+		    (%get-trimsec-at-extension ff reduction-plan extnum)))
 	 (statsec-raw (when is-image-ext
-			(instrument-id:get-statsec-for-fits ff)))
+			(instrument-id:get-statsec-for-fits
+			 ff :extension extnum)))
 	 (statsec (when statsec-raw
 		    (instrument-id:convert-imagesec-to-trimmed-imagesec
 		     statsec-raw trimsec)))
+	 (overscans (when is-image-ext
+		      (%get-overscans-at-extension ff reduction-plan extnum)))
 	 (object-type (instrument-id:get-object-type-for-fits ff))
 	 ;;
 	 (extdesc  
@@ -79,7 +83,8 @@
 			    (cf:fits-file-current-image-size ff))
 	    :image-type  (when is-image-ext
 			   (cf:fits-file-current-image-type ff))
-	    :gain (when is-image-ext (instrument-id:get-gain-for-fits ff))
+	    :gain (when is-image-ext (instrument-id:get-gain-for-fits
+				      ff :extension (cf:fits-file-current-hdu-num ff)))
 	    :object-type object-type
 	    :flat-group (when (and is-image-ext
 				   ;; bias doesn't have a flat-group
@@ -91,7 +96,8 @@
 			    (%get-fringe-group reduction-plan ff))
 	    ;; this is now fixed to use the instrument-id version of trimsec
 	    :trimsec trimsec
-	    :statsec statsec)))
+	    :statsec statsec
+	    :overscans overscans)))
     (setf (extdesc-reduce-p extdesc) is-image-ext)
     extdesc))
 
@@ -104,7 +110,7 @@
 	 = (progn
 	     (cf:move-to-extension ff ihdu)
 	     (multiple-value-bind (ed err)
-		 (ignore-errors
+		 (progn ; ignore-errors
 		  (build-extdesc-at-current-hdu ff :reduction-plan reduction-plan))
 	       (when (not ed)
 		 (imred-log-error

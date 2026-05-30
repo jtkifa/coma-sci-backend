@@ -81,7 +81,8 @@ CHECKPLOT_NAME         ~Afgroups.XX,~Adistort.XX,~Aastr_interror2d.XX,~Aastr_int
        (fwhm-threshold-high 20)
        (match-flipped "N") ;; allow flipped axes?
        (verbose-type "NORMAL")
-       (distort-degrees 1))
+       (distort-degrees 1)
+       (flags-mask #x0fc))  ;; sextractor flags; this is the default
   
   ;; fix the output dir because of scamp's peculiar behavior
   (when (member output-dir '("." ".."))
@@ -155,6 +156,7 @@ CENTROIDERR_KEYS       ERRAWIN_IMAGE,ERRBWIN_IMAGE,ERRTHETAWIN_IMAGE
 DISTORT_KEYS           XWIN_IMAGE,YWIN_IMAGE # Cat. parameters or FITS keywords
 DISTORT_GROUPS         1,1             # Polynom group for each context key
 DISTORT_DEGREES        ~D              # Polynom degree for each group
+FLAGS_MASK             ~D              # sextractor flag to accept/reject star
  
 #---------------------------- Photometric solution ----------------------------
  
@@ -203,6 +205,7 @@ NTHREADS               1            # 1 single thread
 	    match-flipped
 	    crossid-radius
 	    distort-degrees
+	    flags-mask
 	    ;; output dirs for plots and xml output-dir output-dir
 	    (%make-scamp-conf-file-plot-section checkplot-dev output-dir)
 	    fwhm-threshold-low 	    fwhm-threshold-high

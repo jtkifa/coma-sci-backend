@@ -71,6 +71,10 @@
    #:wcs-linear-cdelt1 #:wcs-linear-crpix1
    #:wcs-linear-p1 #:wcs-linear-x1
    #:make-tan-proj-wcs-from-field-info
-
+   ;;
    #:get-pixel-scale-for-wcs
+   ;;
+   ;; wcs-build.lisp
+   #:build-wcs-radec-tan
+   
    ))

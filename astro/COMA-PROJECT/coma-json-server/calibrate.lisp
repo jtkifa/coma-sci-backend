@@ -78,7 +78,7 @@
       (jcom-test-expr (not (probe-file fits-file))
 		      "CANNOT-LOCATE-FITS-FILE"
 		      (format nil "Cannot locate fits file ~A" fits-file))
-      (jcom-test-expr (not (ignore-errors (instrument-id:identify-instrument fits-file)))
+      (jcom-test-expr (not (bt-ignore-errors (instrument-id:identify-instrument fits-file)))
 		      "CANNOT-IDENTIFY-FITS-FILE"
 		      (format nil
 			      "Cannot identify instrument for fits file ~A"
@@ -99,7 +99,7 @@
       (jcom-test-expr (not
 		       (or extension
 			   (setf extension
-				 (ignore-errors (%figure-out-fits-extension-for-calib fits-file)))))
+				 (bt-ignore-errors (%figure-out-fits-extension-for-calib fits-file)))))
 		      "CANNOT-FIGURE-OUT-EXTENSION"
 		      (format nil
 			      "Cannot figure out which extension to use for ~A"
@@ -116,7 +116,7 @@
 
       (unwind-protect ;; protect cleanup
 	   (let* ((instrument
-		    (or (ignore-errors (instrument-id:identify-instrument fits-file))
+		    (or (bt-ignore-errors (instrument-id:identify-instrument fits-file))
 			(return-with-error
 			 "CANNOT-IDENTIFY-FITS-FILE"
 			 (format nil
@@ -131,7 +131,7 @@
 	     ;; WCS, if precalibrated
 	     (when (and wcs-fit-p wcs-precalibration)
 	       (multiple-value-bind (jresp err)
-		   (ignore-errors
+		   (bt-ignore-errors
 		    (%wcs-ingest-precalibration json-resp fits-file
 						wcs-precalibration
 						extension))
@@ -147,7 +147,7 @@
 			(not wcs-precalibration)
 			(not (json-object-error json-resp)))
 	       (multiple-value-bind (jresp err)
-		   (ignore-errors
+		   (bt-ignore-errors
 		    (%calib-fit-wcs
 		     json-resp fits-file
 		     :extension extension
@@ -170,7 +170,7 @@
 	     ;; phot-calib, if precalibrated
 	     (when (and phot-calib-p phot-precalibration)
 	       (multiple-value-bind (jresp err)
-		   (ignore-errors
+		   (bt-ignore-errors
 		    (%phot-ingest-precalibration json-resp fits-file
 						 phot-precalibration
 						 extension))
@@ -186,7 +186,7 @@
 			(not phot-precalibration)
 			(not (json-object-error json-resp)))
 	       (multiple-value-bind (jresp err)
-		   (ignore-errors
+		   (bt-ignore-errors
 		    (%calib-phot-calib
 		     json-resp fits-file
 		     :extension extension
@@ -202,7 +202,7 @@
 	     (when (and compute-image-qualities
 			(not (json-object-error json-resp)))
 	       (multiple-value-bind (jresp err)
-		   (ignore-errors
+		   (bt-ignore-errors
 		    (%calib-compute-image-qualities
 		     json-resp fits-file
 		     :extension extension

@@ -18,9 +18,9 @@
   (multiple-value-bind (data-vec keys-or-error)
       (ignore-errors
 	(run-vizquery-and-parse/multisites ra-deg dec-deg (* radius-deg 60.0) catalog
-				'(("SDSS9" :id string "")
-				  ("RA_ICRS" :ra double-float 1d99)
-				  ("DE_ICRS" :dec double-float 1d99)
+				`(("SDSS9" :id string "")
+				  ("RA_ICRS" :ra double-float ,*invalid-dbl-value*)
+				  ("DE_ICRS" :dec double-float ,*invalid-dbl-value*)
 				  ("umag"   :u double-float 0d0)
 				  ("e_umag" :u-err double-float 0d0)
 				  ("gmag"   :g double-float 0d0)

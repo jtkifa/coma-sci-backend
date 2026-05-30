@@ -1,5 +1,4 @@
 
-
 (defpackage coma-json-server-packager
   (:use #:cl)
   (:export
@@ -52,6 +51,7 @@ functions."
   system-name
   system
   is-quicklisp
+  is-external-package
   pathname
   in-libdir
   relative-path ;; to lisp-lib
@@ -99,6 +99,9 @@ dynamic-libraries
        :is-quicklisp (not (not (search "quicklisp"
 				       (namestring path)
 				       :test 'char-equal)))
+       :is-external-package (not (not (search "external-packages"
+				       (namestring path)
+				       :test 'char-equal)))
        :relative-path (compute-relative-path path (truename *lisp-lib-dir*))))))
      
 
@@ -124,7 +127,25 @@ dynamic-libraries
   (make-pathname
    :directory dir-minus-one)))
 
-(defun export-coma-json-server (output-dir)
+
+;; remove dependencies of sb-xxx form
+(defun remove-internal-dependencies (deps)
+  (loop for dep in deps
+	for depname = (cjsdep-system-name dep)
+	unless (and (eql 0 (search "sb-" depname))
+		    ) ;;; other conditions
+	  collect dep))
+
+(defun export-coma-json-server (output-dir
+				&key
+				  (verbose nil)
+				  ;; by default these will be ingested from sources
+				  (export-external-packages nil)
+				  (export-quicklisp nil)
+				  (make-gitignore nil));; KEEP NIL
+
+  
+				
  
   (let* ((extra-dependencies '("sbcl-scripting"))
 	 (all-dependencies (append *cjs-dependencies* extra-dependencies))
@@ -132,31 +153,52 @@ dynamic-libraries
 	 (ql-deps (loop for dep in deps
 			when (cjsdep-is-quicklisp dep)
 			  collect dep))
+	 (ext-deps  (loop for dep in deps
+			when (cjsdep-is-external-package dep)
+			  collect dep))
 	 (other-deps (loop for dep in deps
-			   when (not (cjsdep-is-quicklisp dep))
+			   when (and (not (cjsdep-is-quicklisp dep))
+				     (not (cjsdep-is-external-package dep)))
 			     collect dep))
+	 ;; deps that are not quicklisp, to copy
+	 (to-copy-deps
+	   (remove-internal-dependencies ;; internal SB-xxx dependencies
+	    (append
+	     other-deps
+	     (if export-external-packages ext-deps))))
+	 ;;
 	 (outdir (string-right-trim "/" (namestring output-dir)))
 	 (qldir (format nil "~A/quicklisp-systems/" outdir)))
     
     (ensure-directories-exist (format nil "~A/IGNORE" outdir))
-    (when ql-deps
+
+    ;; for quicklisp, use 'ql:bundle-systems (but only if export-quicklisp is true)
+    (when (and ql-deps export-quicklisp)
       (ensure-directories-exist (format nil "~A/IGNORE" qldir))
       (ql:bundle-systems (mapcar 'cjsdep-system-name ql-deps)
 			 :to qldir))
 
-    (loop for dep in other-deps
+    (loop for dep in to-copy-deps
 	  for source =  (string-right-trim "/" (namestring (cjsdep-pathname dep)))
 	  for dest = (strip-final-dir
 		      (format nil "~A/~A" outdir (cjsdep-relative-path dep)))
-	  do (rsync-dirs source dest))
+	  do
+	     (when verbose
+	       (format t "Sync DEP ~A  from ~A to ~A~%~%" (cjsdep-system-name dep)
+		       source dest))		     
+	     (rsync-dirs source dest))
 
-    (with-open-file (s (format nil "~A/.gitignore" outdir) :direction :output
-		       :if-does-not-exist :create :if-exists :overwrite)
-      (write-string *gitignore* s))
+    (when make-gitignore
+      (with-open-file (s (format nil "~A/.gitignore" outdir)
+			 :direction :output
+			 :if-does-not-exist :create :if-exists :overwrite)
+	(write-string *gitignore* s)))
 
     (cl-fad:delete-directory-and-files
      (format nil "~A/astro/phot-calib/phot-calib-tests" outdir))
 
+    ;; no longer do linking of script
+    #+nil
     (flet ((do-link (file)
 	     (let ((link-command
 		     (format nil "ln -sf ./astro/COMA-PROJECT/Scripts/~A ~A/~A"
@@ -166,7 +208,8 @@ dynamic-libraries
 				 :error-output *error-output*))))
       (do-link "coma-json-server")
       (do-link "coma-json-server.lisp"))
-    
+
+    #+nil ;; no longer need this
     (loop for thing in '("slime" "asdf" "INIT-FILES")
 	  do (rsync-dirs
 	      (format nil "~A~A" *lisp-lib-dir* thing)

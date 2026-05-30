@@ -42,6 +42,12 @@
    #:gaia-dr1-catalog
    #:read-gaia-dr1-catalog
    #:read-gaia-dr1-catalog-object
+   #:gaia-dr2-catalog
+   #:read-gaia-dr2-catalog
+   #:read-gaia-dr2-catalog-object
+   #:gaia-dr3-catalog
+   #:read-gaia-dr3-catalog
+   #:read-gaia-dr3-catalog-object
    ;; refcat-catalog.lisp (ATLAS)
    #:refcat-catalog
    #:read-refcat-catalog
@@ -81,7 +87,8 @@
    #:merged-catalog
    #:merge-different-catalogs
    ;; misc.lisp
-   #:list-objects-near-location 
+   #:list-objects-near-location
+   #:describe-object-at-index
    ))
 
 (in-package astro-catalog) 

@@ -290,7 +290,7 @@ PHOT-CALIB currently supports only ONECHIP fits files." fits-file)))
 
     (multiple-value-setq (ra0 dec0 radius)
       (%find-radec-circle-for-pcobj-list pcobj-list))
-    
+
     ;; project the pcobj-lists (and COPY the original one because we change X,Y values
     (%project-pcobj-list pcobj-list-targ ra0 dec0)
     (%project-pcobj-list pcobj-list-cat ra0 dec0)
@@ -886,10 +886,12 @@ Tests show that values of PHOT_AUTOPARAMS larger than 5,5 capture over
   (let* ((std-filter (or filter
 			 (instrument-id:get-standard-filter-for-fits fits-file)
 			 (error "Filter can't be inferred for ~A" fits-file)))
+	 (ext (instrument-id:get-image-extension-for-onechip-fits fits-file))
 	 (gain (or (instrument-id:get-gain-for-fits fits-file)
 		   (error "Could not get GAIN for ~A" fits-file)))
 	 (working-dir (terapix:get-fits-directory 
-		       fits-file :if-does-not-exist t))
+		       fits-file :if-does-not-exist t
+		       :extension ext))
 	 (phot-calib-catalog-file "sex_phot_calib_mag_auto.cat")
 	 (phot-calib-catalog-file-fullpath
 	   (format nil "~A/~A" working-dir phot-calib-catalog-file))
@@ -904,8 +906,7 @@ Tests show that values of PHOT_AUTOPARAMS larger than 5,5 capture over
     
     (terapix:run-sextractor 
      fits-file
-     :extension (1-
-		 (instrument-id:get-image-extension-for-onechip-fits fits-file))
+     :extension ext
      :conf-suffix "_PHOTCALIB_MAGAUTO"
      :display-errors nil ;; too much output
      :output-catalog phot-calib-catalog-file
@@ -1012,6 +1013,7 @@ Tests show that values of PHOT_AUTOPARAMS larger than 5,5 capture over
 			     ;; a good aperture use that instead of magerr-vec-final
 			     :mag-err/s (float (aref (or magerr/s-vec magerr-vec-final) i) 1e0)
 			     )))
+
 
       (when (not fits-pcobj-list)
 	(error "No acceptable objects found for calibration."))
@@ -1238,8 +1240,10 @@ The process is
   (let* ((std-filter (or filter
 			 (instrument-id:get-standard-filter-for-fits fits-file)
 			 (error "Filter can't be inferred for ~A" fits-file)))
+	 (ext (instrument-id:get-image-extension-for-onechip-fits fits-file))
 	 (working-dir (terapix:get-fits-directory 
-		       fits-file :if-does-not-exist t))
+		       fits-file :if-does-not-exist t
+		       :extension ext))
 	 (phot-calib-catalog-file "sex_phot_calib_mag_ap.cat")
 	 (matches-file (format nil "sex_phot_calib_mag_ap_matches_~A.csv"
 			       (type-of catalog)))
@@ -1254,7 +1258,7 @@ The process is
     
     (terapix:run-sextractor 
      fits-file
-     :extension (1- (instrument-id:get-image-extension-for-onechip-fits fits-file))
+     :extension ext
      :conf-suffix "_PHOTCALIB_MAGAP"
      :display-errors nil
      :output-catalog phot-calib-catalog-file

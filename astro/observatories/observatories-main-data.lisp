@@ -606,6 +606,5 @@
 	  
    
 
-;; Re-enabled for Docker build - data files are present in repository
 (eval-when (:load-toplevel :execute)
   (fill-obs-hash))

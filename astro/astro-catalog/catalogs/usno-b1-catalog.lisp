@@ -77,11 +77,11 @@ A list of column IDs is returned as the 2nd value.
   (multiple-value-bind (result keys-or-error)
       (ignore-errors
 	(run-vizquery-and-parse/multisites ra-deg dec-deg (* radius-deg 60.0) "USNO-B1"
-				'(("USNO-B1.0" :id string "")
-				  ("RAJ2000" :ra double-float 1d99)
-				  ("DEJ2000" :dec double-float 1d99)
-				  ("e_RAJ2000" :ra-err double-float 0d0)
-				  ("e_DEJ2000" :dec-err double-float 0d0)
+				`(("USNO-B1.0" :id string "")
+				  ("RAJ2000" :ra double-float ,*invalid-dbl-value*)
+				  ("DEJ2000" :dec double-float ,*invalid-dbl-value*)
+				  ("e_RAJ2000" :ra-err double-float 0d0) ;; arcsec
+				  ("e_DEJ2000" :dec-err double-float 0d0);; arcsec
 				  ;;(:sraep ) ;; some fields not available in vizquery version
 				  ;;(:sdeep)
 				  ("pmRA" :mura double-float 0d0) 
@@ -131,13 +131,15 @@ METHOD of :WEB or :VIZQUERY"
 
 (defmethod object-ra-err ((acat usno-b1-catalog) i)
   (max
-   (get-value acat :ra-err i)
-   #.(/ 0.2d0 3600))) ;; impose minimum position error
+   (get-value acat :ra-err i) ;; arcsec
+   0.1d0)) ;; 0.1" floor
+
+
 
 (defmethod object-dec-err ((acat usno-b1-catalog) i)
   (max
    (get-value acat :dec-err i)
-   #.(/ 0.2d0 3600)))
+   0.1d0)) ;; 0.1" floor
 
 
 
