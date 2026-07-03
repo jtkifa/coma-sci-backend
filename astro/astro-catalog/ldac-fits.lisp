@@ -77,7 +77,7 @@ suitable for LDAC fits file for astrometry"))
     (catalog outfile
      &key
        (overwrite nil)
-       (mjd nil)
+       (mjd (astro-time:ut-to-mjd (get-universal-time)))
        (test-function '%default-ldac-test-function)
        (position-error-floor 0.0d0)
        (mag-to-use)

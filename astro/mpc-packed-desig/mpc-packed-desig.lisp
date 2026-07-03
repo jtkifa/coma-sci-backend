@@ -20,8 +20,11 @@
 
 (defvar *09azaz*
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+(defvar *09lcase*
+  "0123456789abcdefghijklmnopqrstuvwxyz")
 (defvar *az-noi* "ABCDEFGHJKLMNOPQRSTUVWXYZ") ;; A-Z no I
-(declaim (type string *09azaz* *az-noi*))
+(declaim (type string *09azaz* *az-noi* *09lcase*))
+
 
 ;; decode packing scheme in which 0=0,1-1, .. A=10,B=20, .. z=61
 ;; return NIL if invalid char
@@ -58,7 +61,8 @@ code like A1234 for overflows.  These are just 5 chars long."
 	   ((every 'digit-char-p string)
 	    (string-left-trim "0" string))
 	   ;; minor  planet < 620,000, as "A1234"
-	   ((and (alpha-char-p (aref string 0)) 
+	   ((and (every 'digit-char-p (subseq string 1))
+                 (alpha-char-p (aref string 0)) 
 		 (parse-integer string :start 1))
 	    (let ((num-mod-10000 (parse-integer string  :start 1))
 		  (num-div-10000 (+ 10
@@ -146,7 +150,23 @@ or it can have a C or P added"
 			(digit-char-p (aref name 0)) (digit-char-p (aref name 1))
 			(digit-char-p (aref name 2)) (digit-char-p (aref name 3)))
 	       (string-left-trim "0" name)))
-	    ((= (length name) 7)
+
+	    ;; 7 char compressed comet
+	    ((and ;; validation
+	      ;; century
+	      (= (length name) 7)
+	      (%decode-mpc-century (aref name 0))
+	      ;; year 
+	      (digit-char-p (aref name 1))
+	      (digit-char-p (aref name 2))
+	      ;; month letter
+	      (find (aref name 3) *az-noi*)
+	      ;; position in month is 09AZaz scheme
+	      (find (aref name 4) *09azaz*) 
+	      (find (aref name 5) *09azaz*)
+	      ;; fragment is 0 or lowercase
+	      (find (aref name 6) *09lcase*))
+	     ;;
 	     (let* ((mpc-century (or (%decode-mpc-century (aref name 0))
 				     (return-from ret nil)))
 		    (year (+ mpc-century

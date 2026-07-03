@@ -55,6 +55,10 @@
 (defclass fzipped ()
   ())
 
+
+(deftype sfimage ()
+  '(simple-array single-float (* *)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; mixin for a preprocessed image, like images from processed survey
 ;; NOTE - this MIXIN must go FIRST, or the methods must be repeated
@@ -237,8 +241,27 @@ which various image parameters can be defined."))
 
 (defgeneric get-badpix-function-for-instrument
     (imaging-instrument fits-file &key extension)
-  (:documentation "Return a function (lambda (ix iy) that returns T
-if 1-indexed pixel ix,iy is bad"))
+  (:documentation "Return
+   (VALUES BADPIX-FUNCTION DOES-NOTHING-P)
+
+BADPIX-FUNCTION is function (LAMBDA IY IX) that returns 0 if a if
+1-indexed pixel IX,IY is good, and a logical bit value if bad.
+
+NOTE - 1-based indexing, and ordering IY IX!
+
+This method may or may not read data from FITS-FILE, and possibly
+close over an image array (hence, may be expensive).
+
+Logical Values are 1 = undefined pixel
+                   2 = detector defect
+                   4 = cannot determine validity
+                   
+                  
+These values are not guaranteed, particularly saturated.  The absence
+of a value for an instrumen does not mean data are good.
+
+The second value is T if the badpix function does nothing (always returns NIL).
+This can be used to avoid unnecessary processing that depends on bad pixels."))
 
 (defgeneric get-critical-headers-for-instrument (imaging-instrument fits-file)
   (:documentation "get the unique critical headers needed for this instrument,
@@ -460,11 +483,44 @@ or a keyword representing the method used."))
    (%id-instrument-or-fail fits-file :instrument instrument)
    fits-file :extension extension))
 
+
+;; declare a badpix function as a function that takes two unsigned bytes and
+;; returns a 63 bit int
+(deftype badpix-function-type ()
+  '(function ((unsigned-byte 24) (unsigned-byte 24)) (unsigned-byte 32)))
+;; declare get-badpix-function-for-fits as a function that returns a badpix-function-type
+(declaim (ftype
+	  (function (t &key (instrument t) (extension t))
+		    badpix-function-type)
+	  get-badpix-function-for-fits))
 (defun get-badpix-function-for-fits (fits-file &key (instrument nil)
 						 extension)
+  "Return
+   (VALUES BADPIX-FUNCTION DOES-NOTHING-P)
+
+BADPIX-FUNCTION is function (LAMBDA IY IX) that returns 0 if a if
+1-indexed pixel IX,IY is good, and a logical bit value if bad.
+
+NOTE: 1-based-indexing, and ordering IY IX!
+
+This method may or may not read data from FITS-FILE, and possibly
+close over an image array (hence, may be expensive).
+
+Logical Values are 1 = undefined pixel
+                   2 = detector defect
+                   4 = cannot determine validity
+                   
+                  
+These values are not guaranteed, particularly saturated.  The absence
+of a value for an instrumen does not mean data are good.
+
+The second value is T if the badpix function does nothing (always returns NIL).
+This can be used to avoid unnecessary processing that depends on bad pixels."
   (get-badpix-function-for-instrument
     (%id-instrument-or-fail fits-file :instrument instrument)
     fits-file :extension extension))
+
+
 
 ;; an assertion that is placed where we attempt to do image ops
 (defun err-if-not-image-at-extension (instrument fits where extension)
@@ -719,15 +775,19 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
       
 
+
+
 (defmethod get-badpix-function-for-instrument 
     ((inst imaging-instrument) fits-file &key  extension)
   (declare (ignore inst fits-file extension))
   ;; by default, just say that all pixels are good
-  (lambda (ix iy)
-    (declare (type (unsigned-byte 20) ix iy)
-	     (ignore ix iy)
-	     (optimize speed))
-    nil))
+  (values
+   (lambda (iy ix)
+     (declare (type (unsigned-byte 24) iy ix)
+	      (ignore iy ix)
+	      (optimize speed))
+     0)
+   T)) ;; this T means the function does nothing - all others should have NIL
   
   
   

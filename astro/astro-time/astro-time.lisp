@@ -53,6 +53,24 @@ TAI-MINUS-UTC, MJDUTC-TO-MJDTAI, and MJDUTC-TO-MJDTT
 
 (in-package astro-time)
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LEAP SECOND WARNING
+(eval-when (:load-toplevel)
+  (let ((next-ut #.(encode-universal-time 0 0 0 1
+					  ;; ENTER NEXT POSSIBLE LEAP SECOND HERE
+					  1 2027  ;; 1 (Jan) or 7 (Jul)
+					  0)))
+  (when (>= (get-universal-time) next-ut)
+    (format t "~%WARNING: - ASTRO-TIME PACKAGE - you may need to
+ update TAI-MINUS-UTC for the latest leap second using data from
+ ftp://maia.usno.navy.mil/ser7/tai-utc.dat The latest possible leap
+ second in code is from six month prior to ~A~%"
+	    (ut-to-date-string next-ut)))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
 (defun calendar-date-to-jd (year month day hour min sec &key (mjd nil))
  "Convert universal time (year month day hr min sec) to decimal Julian day -
 if optional MJD keyword is true, then do an MJD conversion instead.  Doing
@@ -581,16 +599,7 @@ UT at 1900"
   (ut-to-date-string (unix-time-to-lisp-ut ut-unix)))
 
 
-(eval-when (:load-toplevel)
-  (let ((next-ut #.(encode-universal-time 0 0 0 1
-					  7 2026  ;; 1 or 7
-					  0)))
-  (when (>= (get-universal-time) next-ut)
-    (format t "~%WARNING: - ASTRO-TIME PACKAGE - you may need to
- update TAI-MINUS-UTC for the latest leap second using data from
- ftp://maia.usno.navy.mil/ser7/tai-utc.dat The latest possible leap
- second in code is from six month prior to ~A~%"
-	    (ut-to-date-string next-ut)))))
+
 
 (defun tai-minus-utc (mjdutc &key (allow-utc-before-1960 nil))
   "Returns the value of TAI-UTC (atomic time minus UTC) in seconds,
@@ -609,7 +618,7 @@ See ftp://maia.usno.navy.mil/ser7/tai-utc.dat for new leap seconds."
 	     (error "MJDUT before 1960 and ALLOW-UTC-BEFORE-1960 keyword not set."))
 	  ;;
 	  ;; https://en.wikipedia.org/wiki/Leap_second
-	  ;; nothing on 2017 Jul to 2026 Jan
+	  ;; nothing on 2017 Jul to 2026 June
 	  ((>= mjdutc 57754.0d0) (setf dt 37.0d0)) ; 2017 Jan  1 
 	  ((>= mjdutc 57204.0d0) (setf dt 36.0d0)) ; 2015 July 1
 	  ((>= mjdutc 56109.0d0) (setf dt 35.0d0)) ; 2012 July 1

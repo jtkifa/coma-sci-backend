@@ -367,7 +367,7 @@
 
   ;; it's possible that orbits weren't initialized if starting with 
   ;; astorb init that doesn't load data at compile time
-  (initialize-orbital-elements) ;; won't do anything if *orbit-element-vector*
+  (initialize-orbit-elements) ;; won't do anything if *orbit-element-vector*
                                 ;; is already set
   
   (let ((d-mjd (abs (- mjdtt (sbid-snap-mjdtt snap))))

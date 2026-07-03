@@ -263,6 +263,9 @@
 		(stack-dir "_DIR")
 		(t ""))))
 
+
+;; this has to to build an extension by extension duplicate (not respecting actual data)
+;; but with the weight in the right extension
 (defun build-stationary-stack (saaplan fits-list &key (force-rebuild nil))
   (let ((stack-name (make-stationary-stack-name saaplan
 						:append-suffix t))

@@ -53,7 +53,7 @@
    #:get-calibrated-zeropoint-for-instrument
    #:is-reduced-for-instrument
    #:test-if-image-at-extension-for-instrument
-   #:get-badpix-function-for-instrument
+   #:get-badpix-function-for-instrument  #:badpix-function-type
    #:extract-one-image-from-mosaic-fits
    ;;
    ;; these functions either determine the instrument type, or

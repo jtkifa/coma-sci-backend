@@ -400,13 +400,20 @@
   (declare (ignorable mjd))
   (let* ((ra  (get-value acat :ra i))
 	 (dec (get-value acat :dec i))
-	 (dra/dt (get-value acat :pmra i))   ;; mas/yr
-	 (ddec/dt (get-value acat :pmdec i)) ;; mas/yr
-	 (epoch (get-value acat :epoch-mean i)) ;; different epoch for each obj
+	 ;; for old PS1 ldacs, the proper motion isn't there hence
+	 ;; this kludge to preserve usability
+	 (have-proper-motions (get-astro-catalog-vector acat :pmra :error-if-not-exist nil))
+	 (dra/dt (when have-proper-motions
+		   (get-value acat :pmra i)))   ;; mas/yr
+	 (ddec/dt (when have-proper-motions
+		    (get-value acat :pmdec i))) ;; mas/yr
+	 (epoch (when have-proper-motions  
+		  (get-value acat :epoch-mean i))) ;; different epoch for each obj
 	 ;; not every detection has a proper motion
 	 (good-proper-motion
-	   (and (not (invalid-value-p dra/dt))
-		(not (invalid-value-p ddec/dt))))
+	  (and dra/dt ddec/dt epoch
+	       (not (invalid-value-p dra/dt))
+	       (not (invalid-value-p ddec/dt))))
 	 (adjust-by-pm (and mjd epoch good-proper-motion
 			    t))) ;; final T to have T/NIL for return
 

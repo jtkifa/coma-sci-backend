@@ -65,12 +65,20 @@
 		     ;; so we just test for last char.  hct-hfosc2 seems to have single
 		     ;; char filters, so this should be OK too
 		     (flet ((is-filt (char)
-			      (char= (aref filter (1- (length filter))) char))) 
+			      (char= (aref filter (1- (length filter))) char))
+			    (is-sdss (char)
+			      (search (format nil "SDSS ~A" char) filter)))
 		       (cond ((is-filt #\U) :uj)
 			     ((is-filt #\B) :bj)
 			     ((is-filt #\V) :vj)
 			     ((is-filt #\R) :rc)
 			     ((is-filt #\I) :ic)
+			     ;; not sure all these SDSS exist, but r does
+			     ((is-sdss #\u) :usdss)
+			     ((is-sdss #\g) :gsdss)
+			     ((is-sdss #\r) :rsdss)
+			     ((is-sdss #\i) :isdss)
+			     ((is-sdss #\z) :zsdss)
 			     ((search "Free" (string-trim " " filter))
 			      :open)
 			     (t NIL))))))))
@@ -285,6 +293,22 @@
 
 ;(defmethod get-chip-id-for-instrument ((inst %hct-hfosc) fits-file) ..)
 
+;; sometimes images are so broken that there's no RA estimate, hence
+;; no initial wcs estimate, so do it more carefully
+(defmethod get-pixel-scale-for-instrument ((inst hct-hfosc) fits-file &key extension)
+  (declare (ignore extension))
+  (or
+   ;; try the usual method depending on wcs
+   (let ((wcs (cf:read-wcs fits-file)))
+     (when wcs (wcs:get-pixel-scale-for-wcs wcs)))
+   ;; otherwise, fall back on known pixel scale and binning
+   (let*  ((naxis1  (%gethead-or-error fits-file "NAXIS1")) ;; = naxis2
+	   ;; hope no asymmetrical binning (1x2, 2x1) exists
+	   ;; binning might be 2148 too, so we do round
+	   (binning (round (/ 2048d0 naxis1)))
+	   ;; not in the headers, so we use manual
+	   (pixscale/arcsec (* 0.296d0 binning)))
+     pixscale/arcsec)))
 
 (defmethod get-initial-wcs-for-instrument
     ((inst hct-hfosc) fits-file &key extension)
@@ -332,7 +356,7 @@
        (naxis1  (%gethead-or-error fits-file "NAXIS1" :extension 2)) ;; = naxis2
        (pcenter  (* 0.5d0 naxis1)) ;; for binning
        ;; hope no asymmetrical binning (1x2, 2x1) exists
-       (binning (/ 2048d0 naxis1))
+       (binning (round (/ 2048d0 naxis1)))
        ;; not in the headers, so we use manual
        (pixscale/arcsec (* 0.296d0 binning))
        (pixscale (/ pixscale/arcsec 3600d0))

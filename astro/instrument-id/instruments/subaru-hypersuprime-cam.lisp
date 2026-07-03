@@ -162,6 +162,3 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; the problem with this is that 
-;;(defmethod get-badpix-function-for-instrument
-;;  ((inst subaru-hypersuprime-cam-one-chip-tanproj 

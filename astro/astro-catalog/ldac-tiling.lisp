@@ -57,6 +57,7 @@
     &key
       (field-shape :CIRCLE)
       (logger logger:*default-logger*)
+      (mjd (astro-time:ut-to-mjd (get-universal-time)))
       (overwrite t))
     "Given a RA0,DEC0,FIELD-DIAM for a field to fill with catalog
 pointings, retrieve catalogs of diameter CAT-DIAM and of type
@@ -67,6 +68,9 @@ field, otherwise do the whole :SQUARE.
 
 LOGGER is a LOGGER object (NIL,T,STREAM, LOGGER) as defined in LOGGER
 package.
+
+MJD is the epoch to which to move stars using proper motions, if present.
+It defaults to the moment the function is called.
 
 OVERWRITE determines whether old catalogs are overwritten."
    
@@ -137,6 +141,7 @@ OVERWRITE determines whether old catalogs are overwritten."
 				   fullpath)))
 			(astro-catalog:write-catalog-to-fits-ldac 
 			 catalog-object fullpath
+			 :mjd mjd
 			 :overwrite overwrite))))
 		    ;;
 		    ((and file-exists (not overwrite)) ;; not retrieving

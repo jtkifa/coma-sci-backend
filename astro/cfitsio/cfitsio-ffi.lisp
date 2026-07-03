@@ -2032,11 +2032,9 @@ is a special case in cfitsio, equivalent to no null value."
 	;; now handle special case for each array type - yuck
 	  (cond 
 	    ((array-typep array '(simple-array (unsigned-byte 8)))
-	     (print "usb8")
 	     (cfrsw (unsigned-byte 8) :uint8 +TBYTE+))
 	    ;;
 	    ((array-typep array '(simple-array (signed-byte 8)))
-	     (print "sb8")
 	     (cfrsw (signed-byte 8) :int8 +TBYTE+))
 	    ;;
 	    ((array-typep array '(simple-array (unsigned-byte 16)))
