@@ -224,7 +224,8 @@ NTHREADS               1            # 1 single thread
        (analysis-threshold 2.0)
        (gain 1.0)
        (pixel-scale 1.0)
-       (checkimage-types-and-names '()) 
+       (checkimage-types-and-names '())
+       (satur-key   "SATURATE")
        (satur-level 20000.0)
        (mag-zeropoint 0.0)
        (deblend-mincont 0.005)
@@ -275,7 +276,8 @@ MASK_TYPE       CORRECT
  
 PHOT_APERTURES  ~A      
 PHOT_AUTOPARAMS ~A
- 
+
+SATUR_KEY       ~A
 SATUR_LEVEL     ~A
  
 MAG_ZEROPOINT   ~A    
@@ -326,6 +328,7 @@ NTHREADS      ~D # 0 to set automatically
 	    (format nil "~{~F~^,~}" phot-apertures) ;; print as "1.0,2.0,3.0"
 	    (format nil "~F,~F" (first phot-autoparams) 
 		    (second phot-autoparams))
+	    satur-key
 	    satur-level
 	    mag-zeropoint
 	    gain
@@ -719,8 +722,13 @@ NOPENFILES_MAX         ~A
 	    gain-default
 	    blank-badpixels
 	    subtract-back
-	    ;; it looks like SATLEV might not do anything
-	    satlev-keyword satlev-default
+	    ;;
+	    satlev-keyword
+	    ;; satlev can be a value or a fits-by-fits list
+	    (if (listp satlev-default)
+		(format nil "~{~,2F~^, ~}" satlev-default)
+		(format nil "~,2F" satlev-default))
+	    ;;
 	    delete-tmpfiles
 	    (%print-listify copy-keywords :separator ",")
 	    verbose-type

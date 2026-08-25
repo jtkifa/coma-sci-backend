@@ -89,8 +89,9 @@
     :initarg :image-preproc
     :accessor saaplan-image-preproc)
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   ;; function to make weight images (eg, masks)
+   ;; function to make weight images (eg, badpix masks)
    ;; takes argument as (run-weight-generation image-weighter saaplan image-list)
+   ;; currently, the only one uses INSTRUMENT-ID:GET-BADPIX-FUNCTION
    (image-weighter
     :initform nil
     :initarg :image-weighter

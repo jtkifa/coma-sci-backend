@@ -265,7 +265,8 @@ This can be used to avoid unnecessary processing that depends on bad pixels."))
 
 (defgeneric get-critical-headers-for-instrument (imaging-instrument fits-file)
   (:documentation "get the unique critical headers needed for this instrument,
-for example for image duplication"))
+for example for image duplication.  They are not all guaranteed to exist, so they
+should be used only if present.  There are many superfluous, nonexistent ones."))
 
 (defgeneric get-standard-filter-for-instrument (imaging-instrument fits-file)
   (:documentation "get the image symbol (:uj :bj .. :usdss etc) for a fits file"))
@@ -388,9 +389,9 @@ or a keyword representing the method used."))
 (defparameter *default-critical-keywords*
   '("OBJECT" "OBJ" "DATE" "DATE-OBS" "UT" "UT-OBS" "UTDATE" "RA" "DEC" "AIRMASS"
     "HA" "ST" "ZD" "OBSTYPE" "INSTRUMENT" "FILTER" "FILT" "FILTER1" "FILTER2"
-    "MJD" "MJD-DATE"
+    "MJD" "MJD-DATE" "GAIN"
     "MJD-OBS" "MJDATE" "EXPTIME" "LATITUDE" "LONGITUD" "TELESCOP" "INSTRUME"
-    "DETECTOR" "IMAGETYP" "EPOCH" "EQUINOX"  "EXTNAME" "DET-ID"
+    "DETECTOR" "IMAGETYP" "EPOCH" "EQUINOX"  "EXTNAME" "DET-ID" "DETID"
     "EPOMJD"
     "CTYPE1" "CTYPE2" "CRVAL1" "CRVAL2" "CRPIX1" "CRPIX2"
     "CD1_1" "CD1_2" "CD2_1" "CD2_2"))
@@ -472,12 +473,13 @@ or a keyword representing the method used."))
 
    
 (defun %id-instrument-or-fail (fits-file &key (instrument nil))
+  (declare (type (or null imaging-instrument) instrument))
   (or instrument (identify-instrument fits-file)
       (error "Can't identify instrument for fits file ~A" fits-file)))
 
 
 (defun test-if-image-at-extension-for-fits (fits-file &key (instrument nil)
-							extension)
+							(extension t))
   "Test if the current extnsion, or EXTENSION, is an actual image"
   (test-if-image-at-extension-for-instrument
    (%id-instrument-or-fail fits-file :instrument instrument)
@@ -490,16 +492,19 @@ or a keyword representing the method used."))
   '(function ((unsigned-byte 24) (unsigned-byte 24)) (unsigned-byte 32)))
 ;; declare get-badpix-function-for-fits as a function that returns a badpix-function-type
 (declaim (ftype
-	  (function (t &key (instrument t) (extension t))
-		    badpix-function-type)
+	  (function (t &key (:instrument t) (:extension t))
+		    (or badpix-function-type null))
 	  get-badpix-function-for-fits))
+
 (defun get-badpix-function-for-fits (fits-file &key (instrument nil)
 						 extension)
   "Return
-   (VALUES BADPIX-FUNCTION DOES-NOTHING-P)
+     either BADPIX-FUNCTION -or- NULL 
 
 BADPIX-FUNCTION is function (LAMBDA IY IX) that returns 0 if a if
 1-indexed pixel IX,IY is good, and a logical bit value if bad.
+
+If there is no badpix function available, return NIL.
 
 NOTE: 1-based-indexing, and ordering IY IX!
 
@@ -512,10 +517,7 @@ Logical Values are 1 = undefined pixel
                    
                   
 These values are not guaranteed, particularly saturated.  The absence
-of a value for an instrumen does not mean data are good.
-
-The second value is T if the badpix function does nothing (always returns NIL).
-This can be used to avoid unnecessary processing that depends on bad pixels."
+of a value for an instrumen does not mean data are good."
   (get-badpix-function-for-instrument
     (%id-instrument-or-fail fits-file :instrument instrument)
     fits-file :extension extension))
@@ -775,20 +777,13 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
 
       
 
+ 
 
-
+;; by default, no badpix function is returned, but has to be specified per-instrument
 (defmethod get-badpix-function-for-instrument 
     ((inst imaging-instrument) fits-file &key  extension)
   (declare (ignore inst fits-file extension))
-  ;; by default, just say that all pixels are good
-  (values
-   (lambda (iy ix)
-     (declare (type (unsigned-byte 24) iy ix)
-	      (ignore iy ix)
-	      (optimize speed))
-     0)
-   T)) ;; this T means the function does nothing - all others should have NIL
-  
+  NIL) 
   
   
 (defmethod write-gain-for-instrument ((inst onechip) fits-file gain
@@ -1312,7 +1307,8 @@ EXTENSION is :FIRST-IMAGE by default."
 	
 	  (when (test-if-image-at-extension-for-fits ff :extension %extension)
 	    (when (eq output :print)
-	      (format t "There is an image extension here; running image functions~%~%"))
+	      (format t "There is an image extension here at [~A]; running image functions~%~%"
+		      %extension))
 	    (when require-wcs
 	      (do-test
 		  (get-initial-wcs-for-fits ff :extension %extension) "WCS"))

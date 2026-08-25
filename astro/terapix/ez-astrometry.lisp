@@ -407,6 +407,7 @@ Return (VALUES WCS NSTARS RMS NSTARS-HI-SN RMS-HI-SN)"
 	((equalp key "sdss-r8") 'astro-catalog:sdss8-catalog)
 	((equalp key "sdss-r9") 'astro-catalog:sdss9-catalog)
 	((equalp key "ps1") 'astro-catalog:psps-3pi-mean-psf-mag-catalog)
+	((equalp key "ps1-stack") 'astro-catalog:psps-3pi-stack-psf-mag-catalog)
 	((equalp key "refcat") 'astro-catalog:refcat-catalog)
 	(t
 	 nil)));; no such catalog

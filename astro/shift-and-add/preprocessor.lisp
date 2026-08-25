@@ -20,7 +20,6 @@ a parallel list of new processed fits files
 IMAGE-PREPROC on FITS-WORKING-LIST, returning a new fits list of
 pre-processed files."))
 
-
 (defmethod run-image-preproc ((image-preproc image-preproc)
 			      (saaplan saaplan)
 			      fits-working-list)

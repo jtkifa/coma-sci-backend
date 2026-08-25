@@ -20,6 +20,8 @@
    #:static-sky-subtract-preproc
 
    ;; weighter.lisp defines the parent image-weighter class
+   ;;  badpix-weighter.lisp
+   #:badpix-masker
    ;;  simple-masker.lisp
    #:simple-masker
    ;;  stacked-masker.lisp
@@ -29,3 +31,4 @@
    #:simulated-object-preproc
    
    ))
+  

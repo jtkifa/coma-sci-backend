@@ -16,21 +16,25 @@ defines class stacked-masker
 		:initform 2.5
 		:accessor masker-fwhm-factor)))
 
-(defmethod run-weight-generation ((masker stacked-masker) (saaplan saaplan) fits-list)
+(defmethod run-weight-generation ((masker stacked-masker) (saaplan saaplan) fits-list
+				  &key (if-exists :overwrite) badpix-function-list)
+				  
   (stacked-masker-function saaplan fits-list
-			   :fwhm-factor (masker-fwhm-factor masker)))
+			   :fwhm-factor (masker-fwhm-factor masker)
+			   :if-exists if-exists
+			   :badpix-function-list badpix-function-list))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
+ 
 (defun stacked-masker-function (saaplan fits-working-list
-				&key (fwhm-factor 1.0))
+				&key (fwhm-factor 1.0)
+				  (if-exists :overwrite)
+				  badpix-function-list)
   ;(print *imageout-base*)
 
   (let ((stack-fits (make-stationary-stack-name
-		     saaplan :append-suffix t))
-	(stack-dir (make-stationary-stack-name
-		     saaplan :stack-dir t)))
+		     saaplan :append-suffix t)))
     (saaplan-log-format saaplan "SHIFT-AND-ADD: Making stack image ~A for mask.~%"
 			stack-fits)
     (build-stationary-stack saaplan fits-working-list :force-rebuild nil)
@@ -40,17 +44,80 @@ defines class stacked-masker
      stack-fits
      :output nil)
     ;;
-    (loop with shash =  (terapix:read-sextractor-catalog 
-			 (format nil "~A/sex.cat" stack-dir))
-	  for fits in fits-working-list
-	  do (stack-mask-one-fits-file fits shash :fwhm-factor fwhm-factor))))
+    (loop with im-ext = 1 ;; the stack is a creation of swarp, so 1 extension
+	  with stack-fits-dir = (terapix:get-fits-directory stack-fits :extension im-ext)
+	  with shash =  (terapix:read-sextractor-catalog 
+			 (format nil "~A/sex.cat" stack-fits-dir))
+	  for fits-file in fits-working-list
+	  for weight-fits =  (make-weightfile-name-for-fits fits-file
+							  :weight-suffix ".weight.fits"
+							  :err-on-weird-suffix t)
+	  for i from 0
+	  for badpix-func = (if badpix-function-list (nth i badpix-function-list))
+	  do
+	     (when (and (probe-file weight-fits)
+			(not (eq if-exists :overwrite)))
+	       (error "Weight file ~A exists and IF-EXISTS != :OVERWRITE" weight-fits))
+	     (stack-mask-one-fits-file
+	      fits-file weight-fits badpix-func shash :fwhm-factor fwhm-factor))))
+
+
+
+
+(defun stack-mask-one-fits-file (fits-file weight-fits badpix-func shash &key (fwhm-factor 1.0))
+  (declare (type (or null instrument-id:badpix-function-type) badpix-func))
+  ;; read the catalog columns
+  (let* ((im-ext (instrument-id:get-image-extension-for-onechip-fits fits-file))
+	 (fwhmvec (gethash "FWHM_IMAGE" shash))
+	 (xvec (gethash "X_IMAGE" shash))
+	 (yvec (gethash "Y_IMAGE" shash)))
+
+    
+    (cf:maybe-with-open-fits-file (fits-file ff)
+      (cf:with-new-fits-file (weight-fits ffw)
+	(loop for iext from 1 to (cf:fits-file-num-hdus ff)
+	      do (cf:move-to-extension ff iext)
+		 ;;
+		 (if (not (= iext im-ext))
+		     ;; when not the image extension, add a dummy
+		     (progn
+		       (cf:add-image-to-fits-file ffw :byte #() :create-data nil)
+		       (cf:write-fits-header ffw "SIMPLE" t)
+		       (cf:write-fits-header ffw "BITPIX" 8)
+		       (cf:write-fits-header ffw "NAXIS" 0)
+		       (when (not (= iext 1))
+			 (cf:write-fits-header ffw "EXTEND" t)))
+		     ;; else add the weight image
+		     (let* ((naxis1 (aref (cf:fits-file-current-image-size ff) 0))
+			    (naxis2 (aref (cf:fits-file-current-image-size ff) 1))
+			    (imweight (make-array (list naxis2 naxis1) :element-type '(unsigned-byte 8)
+								       :initial-element 1)))
+
+		       ;; first do the sextracted stars
+		       (loop for x across xvec 
+ 			     for y across yvec
+			     for fwhm across fwhmvec
+			     for ix = (round x) and iy = (round y)
+			     do (%simple-mask-star ix iy imweight (float fwhm 1d0) :fwhm-factor fwhm-factor))
+		       ;;
+		       ;; then set the badpix
+		       (when badpix-func
+			 (loop for ix of-type fixnum from 1 to naxis1
+			       do (loop for iy of-type fixnum from 1 to naxis2
+					do (if (not (zerop (funcall badpix-func iy ix)))
+					       (setf (aref imweight (1- iy) (1- ix)) 0)))))
+		       ;;
+		       (cf:add-image-to-fits-file ffw :byte
+						  (vector naxis1 naxis2)
+						  :create-data imweight))))))))
+
 
 
 
     
     
 	
-
+#+nil ;; old one
 (defun stack-mask-one-fits-file (fits shash &key (fwhm-factor 1.0))
   (cf:maybe-with-open-fits-file (fits ff)
 

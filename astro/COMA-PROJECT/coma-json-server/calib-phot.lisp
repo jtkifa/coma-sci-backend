@@ -154,6 +154,8 @@
       (let ((astro-catalog
 	      (cond ((equalp phot-calib-catalog "ps1")
 		     'astro-catalog:psps-3pi-mean-psf-mag-catalog)
+		    ((equalp phot-calib-catalog "ps1-stack")
+		     'astro-catalog:psps-3pi-stack-psf-mag-catalog)
 		    ((equalp phot-calib-catalog "sdss")
 		     'astro-catalog:sdss8-catalog)
 		    ((equalp phot-calib-catalog "refcat")

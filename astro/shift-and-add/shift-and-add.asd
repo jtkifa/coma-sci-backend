@@ -21,6 +21,8 @@
     :depends-on ("shift-and-add" "preprocessor" "saaplan" "utils"))
    (:file "weighter" ;; parent image weighter class
     :depends-on ("shift-and-add-package"  "saaplan" "utils"))
+   (:file "badpix-masker"  ;; mask from  instrument-id:get-badpix-function-for-fits-file  (if defined)
+    :depends-on ("shift-and-add-package" "weighter" "saaplan" "utils"))
    (:file "simple-masker"  ;; mask from detections in individual images
     :depends-on ("shift-and-add-package" "weighter" "saaplan" "utils"))
    (:file "stacked-masker" ;; mask from detections in stack image

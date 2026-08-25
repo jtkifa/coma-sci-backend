@@ -194,11 +194,15 @@ with '%' to allow recovery of the catalog from the FITS file."
 		       for err-ra ;; astroemtric errors in degrees
 			 = (sqrt (+
 				  (expt pos-err-floor/deg 2)
-				  (expt (object-ra-err catalog i) 2)))
+				  (expt
+				   (/ (object-ra-err catalog i) 3600d0) ;; arcsec to deg
+				   2)))
 		       for err-dec
 			 = (sqrt (+
 				  (expt pos-err-floor/deg 2)
-				  (expt (object-dec-err catalog i) 2)))
+				  (expt
+				   (/ (object-dec-err catalog i) 3600d0) ;; arcsec to deg
+				   2)))
 		       do (setf (aref raerr-vec j) (* 1d0 err-ra))
 			  (setf (aref decerr-vec j) (* 1d0 err-dec))
 			  (multiple-value-bind (mag mag-err)

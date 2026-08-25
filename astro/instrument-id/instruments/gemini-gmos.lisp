@@ -276,16 +276,17 @@
 
 
 
-;; a version that has extra headers stripped out
+;; a version that has extra extensions - stripped out; maybe one or two extensions
 (defclass %gmos-stripped-mixin () ())
 ;; north
+(defclass %gmos-stripped-dragons-mosaic-file (%gmos-stripped-mixin %gmos-dragons-mosaic-file) ())
 
 
 (defclass/inst %gmos-n-dragons-mosaic-stripped-file
-  (%gmos-north-mixin %gmos-dragons-mosaic-file %gmos-stripped-mixin) 
+  (%gmos-north-mixin %gmos-stripped-dragons-mosaic-file)
   ((name :initform "GMOS-N-DRAGONS-MOSAIC-STRIPPED")))
 
-(defclass/inst gmos-n-hamamatsu-dragons-mosaic-stripped-file
+(defclass/inst gmos-n-hamamatsu-eev-mosaic-stripped-file
   (%gmos-n-dragons-mosaic-stripped-file %gmos-e2v %gmos-stripped-mixin)
   ((name :initform "GMOS-N-E2V-DRAGONS-MOSAIC-STRIPPED")))
 
@@ -296,15 +297,15 @@
 ;; south
 
 (defclass/inst %gmos-s-dragons-mosaic-stripped-file
-  (%gmos-south-mixin %gmos-dragons-mosaic-file %gmos-stripped-mixin)
+  (%gmos-south-mixin %gmos-stripped-dragons-mosaic-file)
   ((name :initform "GMOS-S-DRAGONS-MOSAIC-STRIPPED")))
 
-(defclass/inst gmos-s-eev-dragons-mosaic-stripped-file
-  (%gmos-s-dragons-mosaic-stripped-file %gmos-e2v %gmos-stripped-mixin)
+(defclass/inst gmos-s-e2v-dragons-mosaic-stripped-file
+  (%gmos-s-dragons-mosaic-stripped-file %gmos-e2v)
   ((name :initform "GMOS-S-EEV-DRAGONS-MOSAIC-STRIPPED")))
 
-(defclass/inst gmos-n-hamamatsu-dragons-mosaic-stripped-file
-  (%gmos-s-dragons-mosaic-stripped-file %gmos-hamamatsu  %gmos-stripped-mixin)
+(defclass/inst gmos-s-hamamatsu-dragons-mosaic-stripped-file
+  (%gmos-s-dragons-mosaic-stripped-file %gmos-hamamatsu)
   ((name :initform "GMOS-S-HAMAMATSU-DRAGONS-MOSAIC-STRIPPED")))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -346,8 +347,8 @@
 				 :extension 1)))
 	 (is-dragons-mosaic ;; later generations of DRAGONS added more extensions
 	   (and is-dragons-mosaic-any (>= nhdu 4)))
-	 (is-dragons-mosaic-stripped
-	   (and is-dragons-mosaic-any (= nhdu 2)))
+	 (is-dragons-mosaic-stripped ;; can be simple one ext
+	   (and is-dragons-mosaic-any (<= nhdu 2)))
 	 (chip-type
 	   (cond ((search "e2v" detec :test 'equalp) "e2v")
 		 ((search "ham" detec :test 'equalp) "hamamatsu")
@@ -360,8 +361,10 @@
 			(t   "unknown")))
 		 ;;
 		 (t "unknown"))))
-		 
-    
+
+    #+nil
+    (format t "is-dragons: ~A~%is-stripped: ~A~%chip-type: ~A~%"
+	    is-dragons-mosaic is-dragons-mosaic-stripped chip-type)
     
     (cond
       ;; NOT GMOS
@@ -413,7 +416,6 @@
 			     'gmos-s-hamamatsu-dragons-mosaic-file))))))
 	     ;; is a stripped dragons mosaic?
 	     (is-dragons-mosaic-stripped
-	      (make-instance
 	       (make-instance
 		(cond ((equalp instr "GMOS-N")
 	               (cond ((equalp chip-type "e2v")
@@ -424,7 +426,7 @@
 	               (cond ((equalp chip-type "e2v")
 			      'gmos-s-eev-dragons-stripped-mosaic-file)
 			     ((equalp chip-type "hamamatsu")
-			      'gmos-s-hamamatsu-dragons-stripped-mosaic-file)))))))
+			      'gmos-s-hamamatsu-dragons-stripped-mosaic-file))))))
 	     ;;
 	     ;; GMOS-NORTH
 	     ((equalp instr "GMOS-N")
@@ -567,7 +569,11 @@
   (declare (ignore inst fits-file))
   (remove-duplicates
    (append
-    '("FILTER1" "FILTER2" "FRAMEID" "CCDSUM")
+    '("FILTER1" "FILTER2" "FRAMEID" "CCDSUM"
+      ;; DRAGONS
+      "GEM-TLM" "SDZHDRSG" "MOSAIC"
+      ;; IMRED
+      "SOFTNAME" "IMRED.GMOS-MOSAIC" "IMRED.GMOSCOMBINED")
     (call-next-method))
    :test 'equalp))
 
@@ -583,8 +589,18 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmethod get-image-extension-for-onechip-instrument ((inst %gmos-dragons-mosaic-file) fits)
-  (declare (ignorable fits))
-  2)
+  (cond
+    ;; if it's stripped, then look how may extensions there are
+    ((typep inst '%gmos-stripped-mixin)
+     (cf:maybe-with-open-fits-file (fits ff)
+       (if (= (cf:fits-file-num-hdus ff) 1)
+	   1
+	   2)))
+	(t ;; otherwise, image data lives in 2nd extension
+	 2)))
+
+
+    
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -651,7 +667,10 @@
 
 ;; DRAGONS puts data into extension 2
 (defmethod get-mjd-start-for-instrument ((inst %gmos-dragons-mosaic-file) fits-file)
-  (%gethead-or-error fits-file "MJD-OBS" :extension 2))
+  (cf:maybe-with-open-fits-file (fits-file ff)
+    (or (%gethead-or-error ff "MJD-OBS" :extension 1)
+	(and (> (cf:fits-file-num-hdus ff) 1)
+	     (%gethead-or-error ff "MJD-OBS" :extension 2)))))
 
 ;; generic version OK
 ;(defmethod get-mjd-mid-for-instrument ((inst XXX) fits-file) ...  )
@@ -809,23 +828,26 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defmethod get-badpix-function-for-instrument ((inst %gmos-dragons-mosaic-file) fits-file &key extension)
   (declare (ignorable extension)) ;; onechip
-  (cf:with-open-fits-file (fits-file ff)
-    (cf:move-to-extension ff 4)
-    (when (not (equalp (cf:read-fits-header ff "EXTNAME") "DQ"))
-      (error "Extension 4 of GMOS DRAGONS mosaic is not EXTNAME=DQ"))
-    (let* ((imsec (cf:read-image-section ff :type :unsigned-byte-8))
-	   (dqbytes (cf:image-section-data imsec))
-	   (bad-bitmap (make-array (array-dimensions dqbytes) :element-type 'bit)))
-      (declare (type (simple-array (unsigned-byte 8) (* *)) dqbytes)
-	       (type (simple-array bit (* *)) bad-bitmap))
-      (loop for i of-type fixnum below (array-total-size dqbytes)
-	    do (setf (row-major-aref bad-bitmap i)
-		     (if (zerop (row-major-aref dqbytes i)) 0 1)))
-      ;;
-      (lambda (iy ix)
-	(declare (type (unsigned-byte 20) iy ix)
-		 (optimize speed))
-	;; NOTE - using 1-based indexing
-	(aref bad-bitmap (1- iy) (1- ix)))))) ;; 1 if bad, 0 if good 
-    
+  (if (typep inst '%gmos-stripped-mixin)
+      nil ;; data is lost
+      ;; use use extension 4
+      (cf:with-open-fits-file (fits-file ff)
+	(cf:move-to-extension ff 4)
+	(when (not (equalp (cf:read-fits-header ff "EXTNAME") "DQ"))
+	  (error "Extension 4 of GMOS DRAGONS mosaic is not EXTNAME=DQ"))
+	(let* ((imsec (cf:read-image-section ff :type :unsigned-byte-8))
+	       (dqbytes (cf:image-section-data imsec))
+	       (bad-bitmap (make-array (array-dimensions dqbytes) :element-type 'bit)))
+	  (declare (type (simple-array (unsigned-byte 8) (* *)) dqbytes)
+		   (type (simple-array bit (* *)) bad-bitmap))
+	  (loop for i of-type fixnum below (array-total-size dqbytes)
+		do (setf (row-major-aref bad-bitmap i)
+			 (if (zerop (row-major-aref dqbytes i)) 0 1)))
+	  ;;
+	  (lambda (iy ix)
+	    (declare (type (unsigned-byte 20) iy ix)
+		     (optimize speed))
+	    ;; NOTE - using 1-based indexing
+	    (aref bad-bitmap (1- iy) (1- ix))))))) ;; 1 if bad, 0 if good 
+  
 

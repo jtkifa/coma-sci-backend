@@ -89,6 +89,9 @@ Returns (VALUES SUCCESS STACK-RESULT)
 		collect namestring))
        ;; the files in their new linked location
        (fits-list-linked nil)
+       ;; the badpix functions, one for each fits file, extracted at an early
+       ;; stage because they may be lost at extraction phase
+       (badpix-func-list nil)
        ;; the fits files we end up combining, after filtering out bad ones
        (fits-working-list nil))
 
@@ -104,9 +107,10 @@ Returns (VALUES SUCCESS STACK-RESULT)
        (set-stack-result-error "CANNOT-OBTAIN-OUTPUT-DIRECTORY" sresult)
        (return (values NIL sresult)))
      
-     ;; symlink the files into the output directory
-     (setf fits-list-linked
-	   (symlink-files-into-output-directory saaplan fits-list-full))
+     ;; symlink the files into the output directory.  This may also extract the relevant
+     ;; extension, and return a list of badpix-functions (or NIL)
+     (multiple-value-setq (fits-list-linked badpix-func-list)
+       (symlink-or-copy-files-into-output-directory saaplan fits-list-full))
      
      
      ;; check WCS already in the file
@@ -181,7 +185,8 @@ Returns (VALUES SUCCESS STACK-RESULT)
     ;; make the weight images if desired
     (when (saaplan-image-weighter saaplan)
       (saaplan-log-format saaplan "SHIFT-AND-ADD: Making weight images for ~A" fits-working-list)
-      (run-weight-generation (saaplan-image-weighter saaplan) saaplan fits-working-list))
+      (run-weight-generation (saaplan-image-weighter saaplan) saaplan fits-working-list
+			     :badpix-function-list badpix-func-list))
 
     (saaplan-log-format saaplan "SHIFT-AND-ADD: Creating shifted head files")
     (loop 
@@ -270,11 +275,106 @@ Returns (VALUES SUCCESS STACK-RESULT)
 	    
     
 						 
-		 
-						     
+
+;; should this fits file's image extension be extracted, rather than a symlink?
+;; YES, if it's not a one-extension trivial fits
+(defun %extract-if-fits-should-be-extracted (fits-file output-fits-file saaplan)
+  (cf:with-open-fits-file (fits-file ff)
+    (let* ((inst (instrument-id:identify-instrument ff))
+	   (im-next  (instrument-id:get-image-extension-for-onechip-fits ff :onechip inst))
+	   (nexts  (cf:fits-file-num-hdus ff))
+	   (headers (instrument-id:get-critical-headers-for-instrument inst fits-file)))
+      (cond ((> nexts 2) ;; 2 extensions - need to turn it into one
+	     ;; check if not extracting onto itself
+	     (when (and (probe-file output-fits-file)
+			(equalp (truename fits-file)
+				(truename output-fits-file)))
+	       (saaplan-log-format
+		saaplan
+		"SHIFT-AND-ADD: ERROR - %extract-if-fits-should-be-extracted  - cannot destructively extract original file ~A to same path."
+		(truename fits-file))
+	       (error "%extract-if-fits-should-be-extracted  - cannot destructively extract original file ~A to same path."
+		      (truename fits-file)))
+	     ;;
+	     (cf:extract-fits-extension fits-file output-fits-file
+					:extension im-next 
+					:overwrite t
+					:morekeys (+ 10 (length headers))
+					:preserve-primary-extension nil)
+	     (cf:with-open-fits-file (output-fits-file ffout :mode :io)
+	       (loop for hdr in headers
+		     do (multiple-value-bind (value comment hret)
+			    (cf:read-fits-header ff hdr :extension 1)
+			  (when (not hret) ;; not in primary, so try image ext
+			    (multiple-value-setq (value comment hret)
+			      (cf:read-fits-header ff hdr :extension im-next)))
+			  (when hret
+			    (cf:write-fits-header ffout hdr value :comment comment)))))
+	     ;; return the output file if we extracted
+	     output-fits-file)
+	    ;; otherwise, it does not need to be extracted
+	    (t
+	     nil)))))
+			
+
+;; symlink the file 
+(defun %symlink-input-fits-file (fits fits-link saaplan)
+  (cond
+    ;; symlink exists, or is the same as the input, so we just use it
+    ((or  (probe-file fits-link)
+	  (equalp fits fits-link)))
+    ;; else we symlink and add if successful
+    (t
+     (multiple-value-bind (val err)
+	 (ignore-errors (osicat-posix:symlink fits fits-link))
+       (if (not val)
+	   (saaplan-log-format
+	    saaplan
+	    "SHIFT-AND-ADD: ERROR - Could not symlink original ~A to link ~A - ~A"
+	    fits fits-link err)
+	   (error "Fatal error - could not  Could not symlink original ~A to link ~A - ~A"
+		  fits fits-link err)
+	   ))))
+  fits-link)
+
+
+
+
+;; link files into processing directory - but if they are multi-ext, strip out image extension
+(defun symlink-or-copy-files-into-output-directory (saaplan fits-working-list
+					    &key
+					      ;; the subdir in saaplan-output-dir that holds inputs
+					      (input-subdir "shift-and-add-input-files"))
+  (let ((outdir-full (file-io:full-namestring/no-symlink-expand
+		      (saaplan-output-directory saaplan))))
+    (saaplan-log-format saaplan "SHIFT-AND-ADD: Linking files into ~A if not there already."
+			outdir-full)
+    (loop with outlist = nil
+	  with badpix-func-outlist = nil
+	  for fits in fits-working-list
+	  ;; get badpix function NOW
+	  for badpix-function = (or (instrument-id:get-badpix-function-for-fits fits)
+				    ;; a dummy function that generates permissive weight files
+				    (lambda (iy ix) (declare (ignore iy ix)) 0))
+	  for fits-base = (file-io:file-minus-dir fits)
+	  for fits-link-or-copy = (concatenate 'string outdir-full
+				       "/"
+				       (string-trim "/" input-subdir)
+				       "/" fits-base)
+	  do
+	     (ensure-directories-exist fits-link-or-copy)
+	     (when (not (%extract-if-fits-should-be-extracted  fits fits-link-or-copy saaplan))
+	       (%symlink-input-fits-file fits fits-link-or-copy saaplan))
+	     (push fits-link-or-copy outlist)
+	     (push badpix-function badpix-func-outlist)
+	     ;;
+	  finally
+	     (return (values (reverse outlist)
+			     (reverse badpix-func-outlist))))))
+
 						     
 	       
-  
+#+nil 
 (defun symlink-files-into-output-directory (saaplan fits-working-list
 					    &key
 					      ;; the subdir in saaplan-output-dir that holds inputs

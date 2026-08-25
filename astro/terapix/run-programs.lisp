@@ -120,6 +120,15 @@ the directory path even if does not exist."
 
 
 
+(defun estimate-saturation-level-for-fits-file (fits-file)
+  (let* ((inst (instrument-id:identify-instrument fits-file))
+	 (satur-level (if inst
+			  (min (instrument-id:saturation-level inst)
+			       (instrument-id:non-linear-level inst))
+			  50000))) ;;fallback 
+    satur-level))
+  
+    
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; SEXTRACTOR
@@ -256,7 +265,8 @@ the directory path even if does not exist."
        (deblend-nthresh 32)
        (phot-apertures '(10.0)) ;; diameters of apertures
        (phot-autoparams '(2.5 3.5))
-       (satur-level 20000)
+       (satur-key   "SATURATE")
+       (satur-level nil)
        (back-size 256)   ;; size of backd mesh
        (back-filtersize 3) ;; filtering over backd mesh
        (verbose-type "NORMAL")
@@ -310,7 +320,7 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
 	   (conv-filename (format nil "~A/sex~A.conv" dir conf-suffix))
 	   (nnw-filename (format nil "~A/sex~A.nnw" dir conf-suffix))
 	   (conf-filename (format nil "~A/sex~A.conf" dir conf-suffix))
-	   (Catalog-filename (format nil "~A/~A" dir output-catalog))
+	   (catalog-filename (format nil "~A/~A" dir output-catalog))
 	   ;; change checkimage Fits files to be in the default directory
 	   (checkimage-types-and-names
 	     (%build-checkimage-file-pairs dir checkimage-types-and-names))
@@ -357,7 +367,8 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
        :conv-filename conv-filename
        :phot-apertures phot-apertures
        :phot-autoparams phot-autoparams
-       :satur-level satur-level 
+       :satur-key   satur-key
+       :satur-level (or satur-level (estimate-saturation-level-for-fits-file fits-file))
        :verbose-type verbose-type
        :pixel-scale pixel-scale
        :weight-image weight-image :weight-type weight-type 
@@ -413,7 +424,6 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
  
     
 
-    
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; SCAMP
@@ -592,6 +602,9 @@ Header file is termined by an END statement."
 	((or (eq val t)  (eq val :true))
 	 "T")))
 
+
+
+
 (defun run-swarp
     (fits-file-or-files imageout-base
      &key 
@@ -614,7 +627,7 @@ Header file is termined by an END statement."
        (gain-default 0.0)
        (blank-badpixels "Y")
        (satlev-keyword "SATURATE")
-       (satlev-default 50000)
+       (satlev-default nil)
        (subtract-back "Y") 
        (header-suffix "head")
        (delete-tmpfiles "N")
@@ -662,35 +675,34 @@ is really used only for CD_ij matrix."
     (multiple-value-bind (dir base topdir)
 	(ensure-fits-directory imageout-base-abs)
       (declare (ignorable topdir))
-      (let ((swarp-conf-filename (format nil "~A/swarp~A.conf" dir conf-suffix))
-	    (fitslist (if (listp fits-file-or-files)
-			  fits-file-or-files
-			  (list fits-file-or-files)))
-	    (subtract-back (if (member subtract-back '(t "Y") :test 'equalp)
-			       "Y" "N"))
-	    (delete-tmpfiles (if (member delete-tmpfiles '(t "Y") :test 'equalp)
-				 "Y" "N"))
-	    (imageout (format nil "~A.fits" base))
-	    (weightout (format nil "~A.weight.fits" base))
-	    (headerfile (format nil "~A.~A" base header-suffix))
-	    (auto-image-size (eql image-size 0))
-	    (naxis1 (cond ((integerp image-size) image-size)
-			  ((typep image-size 'sequence) (elt image-size 0))
-			  (t (error "Invalid IMAGE-SIZE: ~A" image-size))))
-	    (naxis2 (cond ((integerp image-size) image-size)
-			  ((and (typep image-size 'sequence)
-				(= (length image-size) 2))
-			   (elt image-size 1))
-			  (t (error "Invalid IMAGE-SIZE: ~A" image-size))))
-	    
-	    ;; override pixel-scale-type by pixel scale
-	    (pixel-scale-type (if (not pixel-scale) pixel-scale-type "MANUAL"))
-	    (center (cond ((stringp center) center)
-			  ((typep center 'sequence)
-			   (format nil "~A, ~A" (elt center 0) (elt center 1))))))
+      (let* ((swarp-conf-filename (format nil "~A/swarp~A.conf" dir conf-suffix))
+	     (fitslist (if (listp fits-file-or-files)
+			   fits-file-or-files
+			   (list fits-file-or-files)))
+	     (subtract-back (if (member subtract-back '(t "Y") :test 'equalp)
+				"Y" "N"))
+	     (delete-tmpfiles (if (member delete-tmpfiles '(t "Y") :test 'equalp)
+				  "Y" "N"))
+	     (imageout (format nil "~A.fits" base))
+	     (weightout (format nil "~A.weight.fits" base))
+	     (headerfile (format nil "~A.~A" base header-suffix))
+	     (auto-image-size (eql image-size 0))
+	     (naxis1 (cond ((integerp image-size) image-size)
+			   ((typep image-size 'sequence) (elt image-size 0))
+			   (t (error "Invalid IMAGE-SIZE: ~A" image-size))))
+	     (naxis2 (cond ((integerp image-size) image-size)
+			   ((and (typep image-size 'sequence)
+				 (= (length image-size) 2))
+			    (elt image-size 1))
+			   (t (error "Invalid IMAGE-SIZE: ~A" image-size))))
+	     ;; override pixel-scale-type by pixel scale
+	     (pixel-scale-type (if (not pixel-scale) pixel-scale-type "MANUAL"))
+	     (center (cond ((stringp center) center)
+			   ((typep center 'sequence)
+			    (format nil "~A, ~A" (elt center 0) (elt center 1))))))
 
 	;; avoid making dangerously large NAXIS1,2
-	(when (not auto-image-size)  ;; but this lets terapix make it dangerously big
+	(when (not auto-image-size) ;; but this lets terapix make it dangerously big
 	  (when (or (and naxis1 (not (and (integerp naxis1)
 					  (<= 1 naxis1 (expt 2 16)))))
 		    (and naxis2 (not (and (integerp naxis2)
@@ -753,8 +765,9 @@ is really used only for CD_ij matrix."
 			       :satlev-keyword satlev-keyword
 			       ;; we can't use instrument-id:saturation-level because
 			       ;; images might be from different instruments
-			       ;; WARNING - satlev might not do anything!!
-			       :satlev-default satlev-default
+			       :satlev-default ;; can be a fits-by-fits list
+			       (or satlev-default
+				   (mapcar 'estimate-saturation-level-for-fits-file fitslist))	    
 			       :subtract-back subtract-back
 			       :delete-tmpfiles delete-tmpfiles
 			       ;; we have to transfer the headers manually below
@@ -763,14 +776,14 @@ is really used only for CD_ij matrix."
 			       :nthreads nthreads)
 	;;
 	(run-program-and-check
-	 "Swarp process exited with failure"
-	 (jutils:run-program   
-	  (get-swarp-program)
-	  `("-c" ,swarp-conf-filename ,@fitslist)
-	  :wait t 
-	  :output output 
-	  ;; stderr to stdout only if requested
-	  :error (if display-errors t nil) ))
+	    "Swarp process exited with failure"
+	  (jutils:run-program   
+	   (get-swarp-program)
+	   `("-c" ,swarp-conf-filename ,@fitslist)
+	   :wait t 
+	   :output output 
+	   ;; stderr to stdout only if requested
+	   :error (if display-errors t nil) ))
 	
 	;; unfortunately, swarp doesn't handle HIERARCH headers nicely, so
 	;; we manually transfer the headers, extension by extension

@@ -41,30 +41,30 @@ have the following headers
 		   :accessor instrument-gain-keyword)))
 
 (defun %to-generic-filter (filt-keyword) 
-  (cond ((case
-	     filt-keyword
-	   (:uj "U")
-	   (:bj "B")
-	   (:vj "V")
-	   (:rc "R")
-	   (:ic "I")
-	   ;;
-	   (:usdss "u")
-	   (:gsdss "g")
-	   (:rsdss "r")
-	   (:isdss "i")
-	   (:zsdss "z")
-	   ;;
-	   (:gps1 "g")
-	   (:rps1 "r")
-	   (:ips1 "i")
-	   (:zps1 "z")
-	   (:yps1 "y")
-	   ;; all wide filters treated the same
-	   ((:gri :wps1 :gri-cfht-megacam :open :vr) "wide")
-	   ;;
-	   (otherwise "uknown")))))
-
+  (case
+      filt-keyword
+    (:uj "U")
+    (:bj "B")
+    (:vj "V")
+    (:rc "R")
+    (:ic "I")
+    ;;
+    (:usdss "u")
+    (:gsdss "g")
+    (:rsdss "r")
+    (:isdss "i")
+    (:zsdss "z")
+    ;;
+    (:gps1 "g")
+    (:rps1 "r")
+    (:ips1 "i")
+    (:zps1 "z")
+    (:yps1 "y")
+    ;; all wide filters treated the same
+    ((:gri :wps1 :gri-cfht-megacam :open :vr) "wide")
+    ;;
+    (otherwise "unknown")))
+ 
 (defun add-generic-headers-using-template (fits template-fits &key
 								(do-wcs nil)
 								(do-exptime t)
@@ -204,6 +204,7 @@ It is useful, for example, when making stacks or shift-and-add files."
 
 (defmethod get-gain-for-instrument ((inst generic-onechip) fits-file
 				    &key extension)
+  (declare (ignorable extension))
   (%get-generic-header-in-primary-or-img "GAIN" inst fits-file))
 
 (defmethod write-gain-for-instrument ((inst generic-onechip) fits-file gain
@@ -212,6 +213,7 @@ It is useful, for example, when making stacks or shift-and-add files."
 
 (defmethod get-chip-id-for-instrument ((inst generic-onechip) fits-file
 				       &key extension)
+  (declare (ignorable extension))
   1) ;; always chip1
 
 ;; by default return the whole image

@@ -23,7 +23,7 @@
   
   (cffi:define-foreign-library libcpgplot
     (:darwin (:or "libcpgplot.dylib"))
-    (:unix (:or "libcpgplot.so")))
+    (:unix (:or "libcpgplot.so" "libcpgplot.so.5")))
   
   (cffi:define-foreign-library libcpgplot/giza
     (:darwin (:or "libcpgplot_giza.dylib"))

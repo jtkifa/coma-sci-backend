@@ -19,11 +19,11 @@
     (:ra-err "raStackErr") (:dec-err "decStackErr") ;; arcsec
     (:epoch-mean "epochMean") ;; mean epoch and baseline for proper motion
     (:pmra  "pmra")       (:pmdec "pmdec")  ;; not sure if proper motion returned for all datasets
-    (:g  "gStackPSFMag") (:g-err "gStackPSFMagErr")
-    (:r  "rStackPSFMag") (:r-err "rStackPSFMagErr")
-    (:i  "iStackPSFMag") (:i-err "iStackPSFMagErr")
-    (:z  "zStackPSFMag") (:z-err "zStackPSFMagErr")
-    (:y  "yStackPSFMag") (:y-err "yStackPSFMagErr"))) ;; no w-band in PSPS
+    (:g  "gPSFMag") (:g-err "gPSFMagErr")
+    (:r  "rPSFMag") (:r-err "rPSFMagErr")
+    (:i  "iPSFMag") (:i-err "iPSFMagErr")
+    (:z  "zPSFMag") (:z-err "zPSFMagErr")
+    (:y  "yPSFMag") (:y-err "yPSFMagErr"))) ;; no w-band in PSPS
 
     
 
@@ -39,19 +39,30 @@
     (:z  "zMeanPSFMag") (:z-err "zMeanPSFMagErr")
     (:y  "yMeanPSFMag") (:y-err "yMeanPSFMagErr"))) ;; no w-band in PSPS
 
+
+#+nil ;; forced-mean does not have mags, only fluxes.  Thus we can't use it.
+(defparameter *psps-forced-meanpsf-field-ids* 
+  '((:id "objID")
+    (:ra  "raMean") (:dec "decMean")
+    (:ra-err "raMeanErr") (:dec-err "decMeanErr")  ;; arcsec
+    (:pmra  "pmra")       (:pmdec "pmdec") ;; proper motion returned for SOME stars here (mas/yr)
+    (:epoch-mean "epochMean") ;; mean epoch and baseline for proper motion
+    ))
+
+
 (defparameter *psps-stackkron-field-ids*
   '((:id "objID")
     (:ra  "raStack") (:dec "decStack")
     (:ra-err "raStackErr") (:dec-err "decStackErr")  ;; arcsec
     (:pmra  "pmra")       (:pmdec "pmdec") ;; not sure if proper motion returned for all datasets
     (:epoch-mean "epochMean") ;; mean epoch and baseline for proper motion
-    (:g  "gStackKronMag") (:g-err "gStackKronMagErr")
-    (:r  "rStackKronMag") (:r-err "rStackKronMagErr")
-    (:i  "iStackKronMag") (:i-err "iStackKronMagErr")
-    (:z  "zStackKronMag") (:z-err "zStackKronMagErr")
-    (:y  "yStackKronMag") (:y-err "yStackKronMagErr"))) ;; no w-band in PSPS
+    (:g  "gKronMag") (:g-err "gKronMagErr")
+    (:r  "rKronMag") (:r-err "rKronMagErr")
+    (:i  "iKronMag") (:i-err "iKronMagErr")
+    (:z  "zKronMag") (:z-err "zKronMagErr")
+    (:y  "yKronMag") (:y-err "yKronMagErr"))) ;; no w-band in PSPS
 
-
+#+nil ;; do not trust
 (defparameter *psps-meankron-field-ids*
   '((:id "objID")
     (:ra  "raMean") (:dec "decMean")
@@ -65,9 +76,15 @@
     (:y  "yMeanKronMag") (:y-err "yMeanKronMagErr"))) ;; no w-band in PSPS
 
 
-(defparameter *psps-extra-kron-field-ids*
+;; extra Kron mags useful for star/gal separation
+(defparameter *psps-extra-kron-field-ids/mean* ;; for mean catalog
   '((:gkron  "gMeanKronMag") (:gkron-err "gMeanKronMagErr")
     (:rkron  "rMeanKronMag") (:rkron-err "rMeanKronMagErr")))
+
+
+(defparameter *psps-extra-kron-field-ids/stack* ;; for stack catalog
+  '((:gkron  "gKronMag") (:gkron-err "gKronMagErr")
+    (:rkron  "rKronMag") (:rkron-err "rKronMagErr")))
 
 ;; extra fields containing the difference between psf and Kron magnitudes
 (defparameter *psps-psf-minus-kron-ids*
@@ -127,7 +144,7 @@
 					   (data-release :dr2)
 					   (max-objects 1000000)
 					   (ndet-min 3))
-  (declare (type (member :mean :stack) mag-source)
+  (declare (type (member :mean :stack)  mag-source)
 	   (type (member :dr1 :dr2) data-release))
   (format
    nil
@@ -136,7 +153,7 @@
    (string-downcase (string mag-source))
    ra dec radius/deg
    max-objects
-   ndet-min))
+   ndet-min)) 
    
    
 ;; parse datum as integer, float string in that order
@@ -184,15 +201,18 @@
 		       ((eq mag-source :stack)
 			(append *psps-stackpsf-field-ids*
 				;; add kron for star/galaxy separation
-				*psps-extra-kron-field-ids*))
+				*psps-extra-kron-field-ids/stack*))
 		       ((eq mag-source :mean)
 			(append *psps-meanpsf-field-ids*
 				;; add kron for star/galaxy separation
-				*psps-extra-kron-field-ids*))))
+				*psps-extra-kron-field-ids/mean*))))
+		    ;;
 		    ((eq mag-type :kron)
 		     (cond 
-		       ((eq mag-source :stack) *psps-stackkron-field-ids*)
-		       ((eq mag-source :mean) *psps-meankron-field-ids*))))))
+		       ((eq mag-source :stack)
+			*psps-stackkron-field-ids*)
+		       ((eq mag-source :mean)
+			*psps-meankron-field-ids*))))))
 	   (field-strings   (first csv-list))
 	   ;; field pairs is (index symbol) pairs for each returned field,
 	   ;; if this is one of the ones we want

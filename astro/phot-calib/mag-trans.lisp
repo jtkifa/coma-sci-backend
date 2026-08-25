@@ -111,7 +111,13 @@ that returns the FILT type magnitude for object INDEX.
 
 ;; type for any catalog with a ps1 parent
 (deftype ps1-derived-catalog ()
-  `(or astro-catalog:psps-3pi-catalog astro-catalog:refcat-catalog))
+  `(or astro-catalog:psps-3pi-mean-kron-mag-catalog
+       astro-catalog:psps-3pi-mean-psf-mag-catalog
+       astro-catalog:psps-3pi-stack-kron-mag-catalog
+       astro-catalog:psps-3pi-stack-psf-mag-catalog
+       astro-catalog:psps-3pi-stack-psf-mag-catalog
+       astro-catalog:refcat-catalog))
+
 
 (defun mag-trans-func-ps1-to-gsdss (astro-catalog i)
   (declare (type ps1-derived-catalog astro-catalog) 
@@ -406,6 +412,7 @@ function."
     ((member catalog-type '(astro-catalog:psps-3pi-mean-kron-mag-catalog
 			    astro-catalog:psps-3pi-mean-psf-mag-catalog
 			    astro-catalog:psps-3pi-stack-kron-mag-catalog
+			    astro-catalog:psps-3pi-stack-psf-mag-catalog
 			    astro-catalog:psps-3pi-stack-psf-mag-catalog
 			    astro-catalog:refcat-catalog)) ;; uses ps1 mags
 			    

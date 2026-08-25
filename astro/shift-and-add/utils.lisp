@@ -264,8 +264,8 @@
 		(t ""))))
 
 
-;; this has to to build an extension by extension duplicate (not respecting actual data)
-;; but with the weight in the right extension
+;; This doesn't have to build an extension-by-extension duplicate because
+;; Swarp generates a single extension fits file
 (defun build-stationary-stack (saaplan fits-list &key (force-rebuild nil))
   (let ((stack-name (make-stationary-stack-name saaplan
 						:append-suffix t))
@@ -297,4 +297,24 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; make a weight file name for a fits name, but throw an error on a suffix that is not of allowed form
+;; we try to make this conform to rules of SWARP itself
+(defun make-weightfile-name-for-fits (fits-name &key (weight-suffix ".weight.fits") (err-on-weird-suffix t))
+  (declare (type string fits-name weight-suffix))
+  (let ((ndot (position #\. fits-name :from-end t)))
+    (cond
+      ;; no suffix, so easy
+      ((not ndot)
+       (concatenate 'string fits-name weight-suffix))
+      (t
+       (let ((suffix (subseq fits-name (1+ ndot)))
+	     (base   (subseq fits-name 0 ndot))
+	     (allowed-suffixes '("fits" "fit" "fts" "flt")))
+	 (when (and err-on-weird-suffix
+		    (not (member suffix allowed-suffixes :test 'equalp)))
+	   (error "Fits file ~A has suffix ~A which is not one of {~{~A~^, ~}}, when generating a weight file. This is not allowed because weird suffixes can contain critical information, and will clash with SWARP's simple-minded weight suffixing scheme."
+		  fits-name suffix allowed-suffixes))
+	 (concatenate 'string base weight-suffix))))))
+		 
   

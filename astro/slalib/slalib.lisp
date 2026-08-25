@@ -1439,7 +1439,11 @@ in radians.  Planets are NP=
   ;;
   ;; handle a very specific glitch in SBCL on OSX x86 with OpenCore
   ;; that causes a math exception on certain initial FFI calls
-  #+(and sbcl darwin x86-64) (sb-int:get-floating-point-modes)
+  #+(and sbcl darwin x86-64)
+  (progn 
+    (ignore-errors (sb-int:get-floating-point-modes))
+    (ignore-errors (slalib::sla-djcl 54500.5d0))) ;; another kludge
+  ;;(print "Im at 1")
   ;;
   (multiple-value-bind (year month day sec)
       (slalib::sla-djcl 54500.5d0)

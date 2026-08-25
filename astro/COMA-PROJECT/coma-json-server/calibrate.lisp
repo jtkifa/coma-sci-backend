@@ -15,7 +15,7 @@
                  "WCS-FIT-NORDER": 1,  // order of fit (1=linear)
 
                  "PHOT-CALIB":true,
-                 "PHOT-CATALOG":"refcat", // "refcat" "ps1" or "sdss" - refcat is LOCAL
+                 "PHOT-CATALOG":"refcat", // "refcat" "ps1" "ps1-stack" "sdss" - refcat is LOCAL
                  "REDO-PHOT-CALIB":false, // force redo if done
                  "PHOT-CALIB-NSTARS-MIN": 8,
 
