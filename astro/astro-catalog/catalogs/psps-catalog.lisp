@@ -62,7 +62,7 @@
     (:z  "zKronMag") (:z-err "zKronMagErr")
     (:y  "yKronMag") (:y-err "yKronMagErr"))) ;; no w-band in PSPS
 
-#+nil ;; do not trust
+
 (defparameter *psps-meankron-field-ids*
   '((:id "objID")
     (:ra  "raMean") (:dec "decMean")

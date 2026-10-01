@@ -90,7 +90,7 @@ Provided methods:
 					 :create-data imc1)
 	      (write-header-list hchip1)
 	      ;; name the extension after the chip
-	      (cf:write-fits-header "EXTNAME"  (find-header-value  "HIERARCH ESO DET CHIP1 ID" hchip1))
+	      (cf:write-fits-header ffout "EXTNAME"  (find-header-value  "HIERARCH ESO DET CHIP1 ID" hchip1))
 	      ;; do chip2
 	      (cf:add-image-to-fits-file ffout
 					 :ushort
@@ -98,7 +98,7 @@ Provided methods:
 					 :create-data imc2)
 	      (write-header-list hchip2)
 	      ;; name the extension after the chip
-	      (cf:write-fits-header "EXTNAME"  (find-header-value  "HIERARCH ESO DET CHIP2 ID" hchip2)))))))))
+	      (cf:write-fits-header ffout "EXTNAME"  (find-header-value  "HIERARCH ESO DET CHIP2 ID" hchip2)))))))))
 
 
 

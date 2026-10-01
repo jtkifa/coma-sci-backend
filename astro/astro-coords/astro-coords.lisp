@@ -507,7 +507,7 @@ separating the two unit vectors is THETA=2*asin(D/2)"
 			 
 			 
 (defun sky-angles  (alpha1 delta1 alpha2 delta2 &key (units :arcsec))
-  "Return the two angles DELTA-ALPHA and DELTA-DELTA so that a an RA
+  "Return the two angles DELTA-ALPHA and DELTA-DELTA so that an RA
 slew of DELTA-ALPHA followed by a dec slew of DELTA-DELTA takes us
 from from ALPHA1,DELTA1 to ALPHA2,DELTA2."
 

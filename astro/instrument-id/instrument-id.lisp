@@ -786,13 +786,6 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
   NIL) 
   
   
-(defmethod write-gain-for-instrument ((inst onechip) fits-file gain
-				      &key extension)
-  (err-if-not-image-at-extension inst fits-file "write-gain" extension)
-  (if (instrument-gain-keyword inst)
-      (cf:write-fits-header fits-file (instrument-gain-keyword inst) gain
-			    :extension extension)
-      (error "GAIN keyword undefined for instrument ~A" inst)))
 
 (defmethod write-gain-for-instrument ((inst multichip) fits-file gain
 				      &key extension)
@@ -801,6 +794,10 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
   (if (instrument-gain-keyword inst)
       (cf:write-fits-header fits-file (instrument-gain-keyword inst) gain
 			    :extension extension)
+      ;; changed so that it writes the standard header, which is picked up
+      ;; by :around method
+      (set-standard-header fits-file :gain gain :extension extension)
+      #+nil
       (error "GAIN keyword undefined for instrument ~A" inst)))
 
 (defmethod write-gain-for-instrument ((inst onechip) fits-file gain
@@ -811,6 +808,10 @@ Return (VALUES ZP ZP-ERR) or NIL if no zeropoint available."
     (if (instrument-gain-keyword inst)
 	(cf:write-fits-header fits-file (instrument-gain-keyword inst) gain
 			      :extension extension)
+	;; changed so that it writes the standard header, which is picked up
+	;; by :around method
+	(set-standard-header fits-file :gain gain :extension extension)
+	#+nil 
 	(error "GAIN keyword undefined for instrument ~A" inst))))
 
 

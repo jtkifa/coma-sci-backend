@@ -40,7 +40,7 @@
    ;; function of single-float that returns T if a pixel is invalid
    (invalid-pixel-function
     :initarg :invalid-pixel-function
-    :initform (lambda (x) (declare (type single-float x)) (= x 65535.0))
+    :initform (lambda (x) (declare (type single-float x)) (>= x 65535.0))
     :accessor reduction-plan-invalid-pixel-function)
    ;; output value for null (no information) pixels
    (output-null-pixel-value  
@@ -201,6 +201,10 @@
     :initarg :max-fringe-frames
     :initform 20
     :accessor reduction-plan-max-fringe-frames)
+   (min-fringe-frames ;; need at least this many to build a fringe (for star removal)
+    :initarg :min-fringe-frames
+    :initform 3
+    :accessor reduction-plan-min-fringe-frames)
    ;; if we're making fringes, then fringes with fringeset-group EQUALP
    ;; to the STRING of these get made
    (desired-fringe-groups

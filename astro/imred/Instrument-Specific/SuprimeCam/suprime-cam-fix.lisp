@@ -78,7 +78,7 @@
 	      do (loop for ix from (1- (sregion-ximmin sr)) to (1- (sregion-ximmax sr))
 		    for xmed of-type single-float = (aref vos iy)
 		    for pixval of-type single-float = (aref data iy ix)
-		    for saturated = (= pixval +saturation-value+)
+		    for saturated = (>= pixval +saturation-value+)
 		    for xresult of-type single-float = (if saturated
 							   (float +saturation-value+ 1.0)
 							   (- pixval xmed))
@@ -121,7 +121,7 @@
 		    for iy from (1- (sregion-yimmin sr)) to (1- (sregion-yimmax sr))
 		    for xmed of-type single-float = (aref vos ix)
 		    for pixval of-type single-float = (aref data iy ix)
-		    for saturated = (= pixval +saturation-value+)
+		    for saturated = (>= pixval +saturation-value+)
 		    for xresult of-type single-float = (if saturated
 							   (float +saturation-value+ 1.0)
 							   (- pixval xmed))
@@ -153,7 +153,7 @@
 			 for iy of-type (unsigned-byte 29) from (1- (sregion-yimmin sr)) 
 			  to (1- (sregion-yimmax sr))
 			 for pixval of-type single-float = (aref data-in iy ix)
-			 for saturated = (= pixval +saturation-value+)
+			 for saturated = (>= pixval +saturation-value+)
 			 for outval = (if saturated
 					  (float +saturation-value+ 1.0)
 					  (* (/ gain final-gain) (aref data-in iy ix)))

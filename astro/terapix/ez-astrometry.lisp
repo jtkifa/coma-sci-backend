@@ -46,7 +46,8 @@ use terapix for easy astrometry of simple images
        (flags-mask #x00fc)   ;; for scamp: 00fc is default mask, keeps deblends, rejects other glitches
        (allow-saturated-stars nil) ;; set 4s bit of flag mask
        (file-suffix "WCSFIT") ;; suffix for internal files
-       (display-errors nil))
+       (display-errors nil)
+       (scamp-timeout 60)) ;; timeout in seconds for scamp process, NIL for no timeout
        
 
   "Given a single-extension FITS-FILE, fit the WCS to DISTORT-DEGREES
@@ -180,7 +181,8 @@ WCS fits."
 	   :distort-degrees distort-degrees
 	   :flags-mask flags-mask-fixed
 	   :match-flipped (if match-flipped "Y" "N")
-	   :display-errors display-errors))
+	   :display-errors display-errors
+	   :timeout scamp-timeout))
     
     ;; note - these are ALL stars, not the high S/N stars
     (setf nstars (second (assoc "NDeg_Reference" xml-list :test 'equalp)))
@@ -231,16 +233,18 @@ WCS fits."
   (when write-wcs
     ;; back up old wcs to names beginning X
     (cf:with-open-fits-file (fits-file ff :mode :io)
+      ;;
+      (if extension-to-use
+	  (cf:move-to-extension ff extension-to-use)
+	  ;; legacy, for fits files that didn't work with instrument-id package
+	  (loop for iext from 1 to (cf:fits-file-num-hdus ff)
+		do (cf:move-to-extension ff iext)
+		   (when (= (length (cf:fits-file-current-image-size ff)) 2)
+		     (return))
+		finally 
+		   (error "do-nonlinear-astrometry: Could not find an image extension to write wcs. This should not happen.")))
+      ;;
       ;; just delete the old PV headers - don't bother backing up
-      ;;
-      ;; write to the first fits IMAGE extension we find, so move to next image ext
-      (loop for iext from 1 to (cf:fits-file-num-hdus ff)
-	    do (cf:move-to-extension ff iext)
-	       (when (= (length (cf:fits-file-current-image-size ff)) 2)
-		 (return))
-	    finally ;; no image extension? HOW?
-	       (error "do-nonlinear-astrometry: Could not find an image extension to write wcs."))
-      ;;
       (loop for i from 1 to 2
 	    do (loop for j from 0 to 100
 		     for key = (format nil "PV~D_~D" i j)
@@ -253,7 +257,7 @@ WCS fits."
 	  for header in '("CTYPE1" "CTYPE2" "CRVAL1" "CRVAL2" 
 			"CRPIX1" "CRPIX2" "CD1_1" "CD1_2" 
 			  "CD2_1" "CD2_2" "EQUINOX")
-	  for new-header = (concatenate 'string "x" header)
+	  for new-header = (concatenate 'string "BACKUP." header)
 	  for old-value = (cf:read-fits-header ff header)
 	  when old-value
 	    do (cf:write-fits-header ff new-header old-value)))
@@ -282,7 +286,7 @@ WCS fits."
   (values wcs nstars rms nstars-hi-sn rms-hi-sn fwhm)))
 
 
-(defun restore-original-wcs-headers (fits-file &key extension)
+(defun restore-backup-wcs-headers (fits-file &key extension)
   "Restore the original headers, with an x suffix. If EXTENSION is NIL,
 do all extensions where backups exist; if EXTENSION is given, limit
 restoration to this extension."
@@ -306,7 +310,7 @@ restoration to this extension."
 		 for header in '("CTYPE1" "CTYPE2" "CRVAL1" "CRVAL2" 
 				 "CRPIX1" "CRPIX2" "CD1_1" "CD1_2" 
 				 "CD2_1" "CD2_2" "EQUINOX")
-		 for bak-header = (concatenate 'string "x" header)
+		 for bak-header = (concatenate 'string "BACKUP." header)
 		 for bak-value = (cf:read-fits-header ff bak-header)
 		 when bak-value
 		   do (cf:write-fits-header ff header bak-value
@@ -349,7 +353,8 @@ restoration to this extension."
        ;;
        ;; run sextractor and scamp verbosely
        (file-suffix "WCSFIT")
-       (display-errors nil))
+       (display-errors nil)
+       (scamp-timeout 60)) ;; timeout in seconds for scamp process, NIL for no timeout
 
   "Given a single-extension FITS-FILE, fit the WCS to first order
 using swarp and scamp, and if WRITE-WCS is set write it to the file,
@@ -395,6 +400,7 @@ Return (VALUES WCS NSTARS RMS NSTARS-HI-SN RMS-HI-SN)"
     :distort-degrees 1
     :flags-mask flags-mask
     :allow-saturated-stars allow-saturated-stars
+    :scamp-timeout scamp-timeout
     ))
 
 

@@ -327,12 +327,12 @@ Returns (VALUES SUCCESS STACK-RESULT)
     (t
      (multiple-value-bind (val err)
 	 (ignore-errors (osicat-posix:symlink fits fits-link))
-       (if (not val)
+       (when (and (not val) (typep err 'error))
 	   (saaplan-log-format
 	    saaplan
-	    "SHIFT-AND-ADD: ERROR - Could not symlink original ~A to link ~A - ~A"
+	    "SHIFT-AND-ADD: ERROR - Could not symlink original ~A to link ~A - Error is <~A>"
 	    fits fits-link err)
-	   (error "Fatal error - could not  Could not symlink original ~A to link ~A - ~A"
+	   (error "Fatal error - could not  Could not symlink original ~A to link ~A - Error is <~A>"
 		  fits fits-link err)
 	   ))))
   fits-link)

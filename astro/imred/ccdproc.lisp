@@ -33,7 +33,7 @@
 	      for x = (row-major-aref array i)
 	      when (or 
 		    (float-nan-p x) ;; always invalid
-		    (= x saturation-val)
+		    (>= x saturation-val)
 		    (funcall invalid-func x))
 		do (setf (row-major-aref array i) +invalid-pixel-value+)))))
 

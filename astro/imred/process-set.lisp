@@ -337,55 +337,57 @@ the REDUCTION-PLAN-TARGET-DIR"
 		   (push fringe-fits (fileset-output-fringecorrected-obj-list fileset))))
 	       ;;
 	    finally
-	       (loop for orig-fits in (fringeset-fringe-obj-list fringeset)
-		     for proc-fits = (gethash orig-fits in-out-obj-fits-hash)
-		     for defringed-fits
-		       = (when proc-fits ;; can fail to proc
-			   (modify-fits-name
-			    proc-fits 
-			    :new-dir nil ;; keep output dir
-			    :suffix (reduction-plan-defringed-suffix reduction-plan)))
-		     when proc-fits ;; can fail to proc
-		     do
-			(push defringed-fits (fileset-output-fits-list fileset))
-			;; if defringed exists, don't redo unless asked
-			(cond 
-			  ;; reduction already exists and we don't want to redo
-			  ((and (probe-file defringed-fits)
-				(not (reduction-plan-recreate-fringes
-				      reduction-plan)))
-			   t) ;; do nothing
-			  ;; else do defringing
-			  (t  
-			   (when (probe-file defringed-fits)
-			     (backup-file-by-renaming defringed-fits))
-			    (imred-log-note
-			     (format nil "Fringe subtracting ~A --> ~A"
-				     proc-fits defringed-fits))
-			    (multiple-value-bind (success err)
-				(maybe-ignore-errors
-				 (progn
-				   (fringecor proc-fits defringed-fits fringe-fits
-					      :reduction-plan reduction-plan
-					      :if-exists :supersede)
-				   t))
-			      (when (not success)
-				(imred-log-error (format
-						  nil
-						  "FRINGECOR failed for ~A + ~A with error ~A"
-						  proc-fits fringe-fits err)
-						 :die nil)))
+	       ;; Only apply fringe correction if fringe file exists
+	       (when (probe-file fringe-fits)
+		 (loop for orig-fits in (fringeset-fringe-obj-list fringeset)
+		       for proc-fits = (gethash orig-fits in-out-obj-fits-hash)
+		       for defringed-fits
+			 = (when proc-fits ;; can fail to proc
+			     (modify-fits-name
+			      proc-fits
+			      :new-dir nil ;; keep output dir
+			      :suffix (reduction-plan-defringed-suffix reduction-plan)))
+		       when proc-fits ;; can fail to proc
+		       do
+			  (push defringed-fits (fileset-output-fits-list fileset))
+			  ;; if defringed exists, don't redo unless asked
+			  (cond
+			    ;; reduction already exists and we don't want to redo
+			    ((and (probe-file defringed-fits)
+				  (not (reduction-plan-recreate-fringes
+					reduction-plan)))
+			     t) ;; do nothing
+			    ;; else do defringing
+			    (t
+			     (when (probe-file defringed-fits)
+			       (backup-file-by-renaming defringed-fits))
+			     (imred-log-note
+			      (format nil "Fringe subtracting ~A --> ~A"
+				      proc-fits defringed-fits))
+			     (multiple-value-bind (success err)
+				 (maybe-ignore-errors
+				  (progn
+				    (fringecor proc-fits defringed-fits fringe-fits
+					       :reduction-plan reduction-plan
+					       :if-exists :supersede)
+				    t))
+			       (when (not success)
+				 (imred-log-error (format
+						   nil
+						   "FRINGECOR failed for ~A + ~A with error ~A"
+						   proc-fits fringe-fits err)
+						  :die nil)))
 						 
-			    ;; now apply patch function to output
-			    (when 
-				(and 
-				 (reduction-plan-output-fits-patch-function
-				  reduction-plan)
-				 (probe-file defringed-fits))
-			      (funcall  
-			       (reduction-plan-output-fits-patch-function
-				reduction-plan)
-			       defringed-fits reduction-plan)))))))
+			     ;; now apply patch function to output
+			     (when
+				 (and
+				  (reduction-plan-output-fits-patch-function
+				   reduction-plan)
+				  (probe-file defringed-fits))
+			       (funcall
+				(reduction-plan-output-fits-patch-function
+				 reduction-plan)
+				defringed-fits reduction-plan)))))))) ;; extra ) for when probe-file
 
     ;; delete preproc list
     (when (and fits-list-preproc

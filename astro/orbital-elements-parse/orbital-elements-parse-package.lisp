@@ -6,6 +6,7 @@
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; orbital-elements-parse-jpl.lisp
+   #:make-comet-elem-from-jpl-elements
    #:parse-jpl-elem-string
    
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

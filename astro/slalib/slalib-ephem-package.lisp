@@ -17,7 +17,6 @@
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; export symbols from orbital-elements for past compatibility
    #:comet-elem #:make-comet-elem #:comet-elem-p
-   #:make-comet-elem-from-jpl
    #:comet-elem-id #:comet-elem-epoch #:comet-elem-time-peri
    #:comet-elem-orbinc #:comet-elem-anode #:comet-elem-perih
    #:comet-elem-q #:comet-elem-e #:comet-elem-nongravs #:comet-elem-data

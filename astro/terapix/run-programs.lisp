@@ -119,6 +119,42 @@ the directory path even if does not exist."
 	  (error ,error-message))))
 
 
+(define-condition terapix-process-timeout (error)
+  ((program :initarg :program :reader terapix-process-timeout-program)
+   (timeout :initarg :timeout :reader terapix-process-timeout-seconds))
+  (:report (lambda (c s)
+	     (format s "Process ~A timed out after ~A seconds"
+		     (terapix-process-timeout-program c)
+		     (terapix-process-timeout-seconds c)))))
+
+(defun run-program-with-timeout (program args timeout-seconds
+				 &key (output t) (error-output t))
+  "Run PROGRAM with ARGS, killing it if it exceeds TIMEOUT-SECONDS.
+Returns the process object on success. Signals PROCESS-TIMEOUT on timeout.
+If TIMEOUT-SECONDS is NIL, waits indefinitely (no timeout)."
+  (let ((proc (jutils:run-program program args
+				  :wait nil
+				  :output output
+				  :error error-output)))
+    (if (not timeout-seconds)
+	;; No timeout - just wait for completion
+	(progn
+	  (loop while (jutils:process-alive-p proc) do (sleep 0.5))
+	  proc)
+	;; With timeout
+	(loop with start-time = (get-internal-real-time)
+	      with timeout-ticks = (* timeout-seconds internal-time-units-per-second)
+	      while (jutils:process-alive-p proc)
+	      do (cond ((> (- (get-internal-real-time) start-time) timeout-ticks)
+			(jutils:process-kill proc 15) ; SIGTERM
+			(sleep 1)
+			(when (jutils:process-alive-p proc)
+			  (jutils:process-kill proc 9)) ; SIGKILL
+			(error 'terapix-process-timeout :program program :timeout timeout-seconds))
+		       (t
+			(sleep 0.5)))
+	      finally (return proc)))))
+
 
 (defun estimate-saturation-level-for-fits-file (fits-file)
   (let* ((inst (instrument-id:identify-instrument fits-file))
@@ -249,6 +285,10 @@ the directory path even if does not exist."
 								:type :byte)))
       badpix-file)))
 
+
+;; describe how program is being called during run, for debug
+(defvar *print-sextractor-usage* nil)
+
 (defun run-sextractor
     (fits-file 
      &key
@@ -282,7 +322,8 @@ the directory path even if does not exist."
        (flag-image nil) ;; user input flags, 2-32 bit integers
        (flag-type  "OR") ;; OR AND MIN MAX MOST
        ;; additional output parameters
-       (extra-output-parameters nil))
+       (extra-output-parameters nil)
+       (print-sextractor-usage *print-sextractor-usage*))
   "Run sextractor on FITS-FILE (eg foo.fits) and leave file
 sex.cat in foo.DIR/sex.cat.
 
@@ -395,6 +436,10 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
       (when (or (not md5-avoid-rerun)
 		(not old-output-exists-using-md5))
 	;;
+	(when print-sextractor-usage
+	   (format t "Running sextractor as ~% ~A ~{~A ~}~%"
+		  (get-sextractor-program)
+		  (list full-fits-file "-c" conf-filename)))
 	(prog1
 	    (run-program-and-check
 		"Sextractor process exited with failure"
@@ -429,7 +474,8 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
 ;; SCAMP
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     
-  
+;; describe how program is being called during run, for debug
+(defvar *print-scamp-usage* nil)
 
 (defun run-scamp
     (fits-file &key
@@ -458,7 +504,9 @@ re-running sextractor unless :MD5-AVOID-RERUN is disabled."
 		 (fwhm-threshold-low 1.0)
 		 (fwhm-threshold-high 40.0)
 		 (checkplot-dev "NULL") ;; none
-		 (verbose-type "NORMAL"))
+		 (verbose-type "NORMAL")
+		 (print-scamp-usage *print-scamp-usage*)
+		 (timeout 60)) ;; timeout in seconds, NIL for no timeout
   "Run scamp on fits file, assuming that the sextractor catalog 
 FITSFILE_DIR/sex.cat exists already.  If COPY-HEAD is T, then
 copy the headfile created, sex.head, to FITSFILE.head so it can
@@ -472,7 +520,9 @@ be used further."
 	     (not (probe-file astref-catalog-filename)))
     (error "Can't find astref-catalog-filename file '~A'" astref-catalog-filename))    
     
-  
+  (when (not (cf:read-wcs fits-file :extension extension))
+    (error "In RUN-SCAMP, no WCS found in fits file '~A' - sextractor would not have put RA,DEC so a fit is hopeless." fits-file))
+
   (multiple-value-bind (dir base topdir)
       (ensure-fits-directory fits-file :extension extension)
     (let ((catalog-filename
@@ -511,16 +561,22 @@ be used further."
        :fwhm-threshold-low fwhm-threshold-low
        :fwhm-threshold-high fwhm-threshold-high
        :verbose-type verbose-type)
-      
-      (run-program-and-check
-	  "Scamp process exited with failure"
-	    (jutils:run-program   
-	     (get-scamp-program)
-	     (list catalog-filename "-c" scamp-conf-filename)
-	     :wait t 
-	     :output output 
-	     ;; stderr to stdout only if requested
-	     :error (if display-errors t nil) ))
+
+      ;; diagnostic
+      (when print-scamp-usage
+	  (format t "Running scamp as ~% ~A ~{~A ~}~%"
+		  (get-scamp-program)
+		  (list catalog-filename "-c" scamp-conf-filename)))
+      ;;
+      (let ((proc (run-program-with-timeout
+		   (get-scamp-program)
+		   (list catalog-filename "-c" scamp-conf-filename)
+		   timeout
+		   :output output
+		   :error-output (if display-errors t nil))))
+	(when (not (zerop (jutils:process-exit-code proc)))
+	  (error "Scamp process exited with failure")))
+
       (when copy-head-up 
 	(file-io:copy-file 
 	 (format nil "~A/~A.head" dir sextractor-catalog-base)
@@ -603,7 +659,8 @@ Header file is termined by an END statement."
 	 "T")))
 
 
-
+;; describe how program is being called during run, for debug
+(defvar *print-swarp-usage* nil)
 
 (defun run-swarp
     (fits-file-or-files imageout-base
@@ -637,6 +694,7 @@ Header file is termined by an END statement."
        (output-headers nil)
        (wcs nil)
        (center-on-wcs nil)
+       (print-swarp-usage *print-swarp-usage*)
        )
 
        
@@ -774,6 +832,11 @@ is really used only for CD_ij matrix."
 			       :copy-keywords nil
 			       :verbose-type verbose-type
 			       :nthreads nthreads)
+	;;
+	(when print-swarp-usage
+	   (format t "Running swarp as ~% ~A ~{~A ~}~%"
+		  (get-swarp-program)
+		  `("-c" ,swarp-conf-filename ,@fitslist)))
 	;;
 	(run-program-and-check
 	    "Swarp process exited with failure"

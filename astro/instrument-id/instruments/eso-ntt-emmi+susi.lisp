@@ -664,43 +664,64 @@ is not 0 or 90.
 
 (defmethod %get-emmi-susi-overscans-in-hdu ((inst eso-ntt-emmi-rild-fa2048/raw2ext) ff)
   (declare (ignore inst))
-  (cond ((eql (cf:read-fits-header ff "ESO DET CHIP1 INDEX") 1)
-	 (vector (cf:read-fits-header ff "ESO DET OUT1 PRSCX")
-		 (cf:read-fits-header ff "ESO DET OUT1 OVSCX")
-		 (cf:read-fits-header ff "ESO DET OUT1 PRSCY")
-		 (cf:read-fits-header ff "ESO DET OUT1 OVSCY")))
-	((eql (cf:read-fits-header ff "ESO DET CHIP2 INDEX") 2)
-	 (vector (cf:read-fits-header ff "ESO DET OUT2 PRSCX")
-		 (cf:read-fits-header ff "ESO DET OUT2 OVSCX")
-		 (cf:read-fits-header ff "ESO DET OUT2 PRSCY")
-		 (cf:read-fits-header ff "ESO DET OUT2 OVSCY")))
-	(t
-	 (error "Error getting header 'DET CHIPi INDEX' in  %get-emmi-susi-overscans-in-hdu for eso-ntt-emmi-rild-fa2048/raw2ext"))))
+  ;; Note: Some headers may be missing in certain formats - default to 0
+  ;; After amp-merge, the headers may come from various source formats
+  (labels ((get-overscan-vector (prscx-key ovscx-key prscy-key ovscy-key)
+             ;; Read headers with defaults for missing values
+             (let ((prscx (cf:read-fits-header ff prscx-key))
+                   (ovscx (cf:read-fits-header ff ovscx-key)))
+               (when (and prscx ovscx)
+                 (vector prscx ovscx
+                         (or (cf:read-fits-header ff prscy-key) 0)
+                         (or (cf:read-fits-header ff ovscy-key) 0))))))
+    (or
+     ;; Modern format with CHIP1/CHIP2 headers (post-2003)
+     (when (eql (cf:read-fits-header ff "ESO DET CHIP1 INDEX") 1)
+       (get-overscan-vector "ESO DET OUT1 PRSCX" "ESO DET OUT1 OVSCX"
+                            "ESO DET OUT1 PRSCY" "ESO DET OUT1 OVSCY"))
+     (when (eql (cf:read-fits-header ff "ESO DET CHIP2 INDEX") 2)
+       (get-overscan-vector "ESO DET OUT2 PRSCX" "ESO DET OUT2 OVSCX"
+                            "ESO DET OUT2 PRSCY" "ESO DET OUT2 OVSCY"))
+     ;; Older format with simple DET OUT headers (pre-2003, or merged from raw4ext)
+     (get-overscan-vector "ESO DET OUT PRSCX" "ESO DET OUT OVSCX"
+                          "ESO DET OUT PRSCY" "ESO DET OUT OVSCY")
+     ;; Try OUT1 without CHIP index (some merged formats)
+     (get-overscan-vector "ESO DET OUT1 PRSCX" "ESO DET OUT1 OVSCX"
+                          "ESO DET OUT1 PRSCY" "ESO DET OUT1 OVSCY")
+     ;; Try OUT2 without CHIP index
+     (get-overscan-vector "ESO DET OUT2 PRSCX" "ESO DET OUT2 OVSCX"
+                          "ESO DET OUT2 PRSCY" "ESO DET OUT2 OVSCY")
+     ;; No recognized headers - default to no prescan/overscan
+     (vector 0 0 0 0))))
 
 
 (defmethod %get-emmi-susi-overscans-in-hdu ((inst eso-ntt-emmi-rild-fa2048/raw4ext) ff)
   (declare (ignore inst))
   ;; this one initially used 'DET OUTi' (i=1,2) for chip halves, then moved to
-  ;; then finally simple header 'DET OUT' in each extension.  
+  ;; then finally simple header 'DET OUT' in each extension.
+  ;; Note: Some headers may be missing in certain formats - default to 0
   (cond
     ;; final version when they came to their senses, after about 2003
     ((cf:read-fits-header ff "ESO DET OUT PRSCX")
      (vector (cf:read-fits-header ff "ESO DET OUT PRSCX")
-	     (cf:read-fits-header ff "ESO DET OUT OVSCX")
-	     (cf:read-fits-header ff "ESO DET OUT PRSCY")
-	     (cf:read-fits-header ff "ESO DET OUT OVSCY")))
+	     (or (cf:read-fits-header ff "ESO DET OUT OVSCX") 0)
+	     (or (cf:read-fits-header ff "ESO DET OUT PRSCY") 0)
+	     (or (cf:read-fits-header ff "ESO DET OUT OVSCY") 0)))
     ;; before that, this would be first half of either chip
     ((cf:read-fits-header ff "ESO DET OUT1 PRSCX")
      (vector (cf:read-fits-header ff "ESO DET OUT1 PRSCX")
-	     (cf:read-fits-header ff "ESO DET OUT1 OVSCX")
-	     (cf:read-fits-header ff "ESO DET OUT1 PRSCY")
-	     (cf:read-fits-header ff "ESO DET OUT1 OVSCY")))
+	     (or (cf:read-fits-header ff "ESO DET OUT1 OVSCX") 0)
+	     (or (cf:read-fits-header ff "ESO DET OUT1 PRSCY") 0)
+	     (or (cf:read-fits-header ff "ESO DET OUT1 OVSCY") 0)))
     ;; and this would be second half of either chip
     ((cf:read-fits-header ff "ESO DET OUT2 PRSCX")
      (vector (cf:read-fits-header ff "ESO DET OUT2 PRSCX")
-	     (cf:read-fits-header ff "ESO DET OUT2 OVSCX")
-	     (cf:read-fits-header ff "ESO DET OUT2 PRSCY")
-	     (cf:read-fits-header ff "ESO DET OUT2 OVSCY")))))
+	     (or (cf:read-fits-header ff "ESO DET OUT2 OVSCX") 0)
+	     (or (cf:read-fits-header ff "ESO DET OUT2 PRSCY") 0)
+	     (or (cf:read-fits-header ff "ESO DET OUT2 OVSCY") 0)))
+    ;; No recognized headers - default to no prescan/overscan
+    (t
+     (vector 0 0 0 0))))
 	
 
  
@@ -848,7 +869,9 @@ is not 0 or 90.
   (declare (ignore inst))
   '(1 2 3 4))
 
-;; emmi rild has images reversed (in xy plane system)
+;; emmi rild FA2048 chip ordering:
+;; Extension 2 (image 1) = RIGHT chip, Extension 3 (image 2) = LEFT chip
+;; Verified: ext 3 with '(2 1) ordering produces correct WCS
 (defmethod %get-emmi-susi-image-ordering ((inst %eso-ntt-emmi-rild-fa2048))
   (cond ((or (typep inst 'eso-ntt-emmi-rild-fa2048/raw2ext)
 	     (typep inst 'eso-ntt-emmi-rild-fa2048/raw2ext-onechip)
@@ -873,14 +896,25 @@ is not 0 or 90.
   (declare (ignore inst))
   (values 0d0 0d0)) ;; (values crpix1 crpix2)
 
-;; EMMI in RILD mode has 2 chips and center is offset
-;; into the right hand chip by about 61 arcsec.
+;; EMMI-RILD with the 2-chip FA2048 mosaic has the optical axis offset
+;; into the right chip by about 61 arcsec.
 ;; https://www.ls.eso.org/lasilla/sciops/ntt/emmi/emmiDetectors.html#gap
-(defmethod %get-emmi-susi-crpix-pointing-adj ((inst  %eso-ntt-emmi-rild))
+;; This applies ONLY to FA2048, not to single-chip RILD variants (TEK2048, THX1024).
+(defmethod %get-emmi-susi-crpix-pointing-adj ((inst  %eso-ntt-emmi-rild-fa2048))
   (let* ((arcsec-offset 61.3d0) ;; to RIGHT into 2nd chip; see link
 	 (pix-size (* (%pix-scale-bin1 inst) (%xbinning inst)))
 	 (num-pix (/ arcsec-offset pix-size)))
     (values num-pix 0d0)))
+
+;; Single-chip EMMI-RILD variants (TEK2048, THX1024) have centered pointing,
+;; so no pointing adjustment is needed.
+(defmethod %get-emmi-susi-crpix-pointing-adj ((inst  %eso-ntt-emmi-rild-tek2048))
+  (declare (ignore inst))
+  (values 0d0 0d0))
+
+(defmethod %get-emmi-susi-crpix-pointing-adj ((inst  %eso-ntt-emmi-rild-thx1024))
+  (declare (ignore inst))
+  (values 0d0 0d0))
 
 
 
@@ -913,25 +947,74 @@ is not 0 or 90.
           ((= image-number 2) (- (/ gap-pix 2d0)))
           (t 0d0))))
 
-;; for emmi-fa-20438 we observe that the left chip (ie, image-number=2 or 3,4)
-;; is shifted left by about 10", which is about 30 pixels
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Systematic CRPIX adjustment to center initial WCS on chip center
+;; rather than telescope pointing.
+;;
+;; For multi-chip instruments, the telescope pointing is typically at
+;; the field center (between chips), so each chip center is offset from
+;; the pointing. These empirical adjustments (derived from fitting many
+;; images) shift CRPIX so the initial WCS is centered on each chip,
+;; reducing the shift SCAMP needs to make.
+;;
+;; Returns (VALUES crpix1-adj crpix2-adj) in pixels.
+;; Positive crpix1-adj shifts the reference point RIGHT on the chip,
+;; which shifts the sky at chip center WEST (lower RA for E-left orientation).
+
+(defmethod %get-emmi-susi-crpix-systematic-adj ((inst %eso-ntt-emmi+susi) image-number)
+  "Default: no systematic adjustment."
+  (declare (ignore inst image-number))
+  (values 0d0 0d0))
+
+;; TEK2048: No correction yet - need to measure from clean baseline
+(defmethod %get-emmi-susi-crpix-systematic-adj ((inst %eso-ntt-emmi-rild-tek2048) image-number)
+  (declare (ignore image-number))
+  (values 0d0 0d0))
+
+;; SUSI2: pointing is at field center, chips are 86" on either side
+;; At 0.0805"/pix (bin=1): 86" = 1068 pixels
+(defmethod %get-emmi-susi-crpix-systematic-adj ((inst eso-ntt-susi2/reduced) image-number)
+  (let* ((shift-arcsec 86.0d0)
+         (pix-scale (* (%pix-scale-bin1 inst) (%xbinning inst)))
+         (shift-pix (/ shift-arcsec pix-scale)))
+    ;; image 1 (ext 2, left chip): need +shift to move sky west
+    ;; image 2 (ext 3, right chip): need -shift to move sky east
+    (cond ((= image-number 1) (values shift-pix 0d0))
+          ((= image-number 2) (values (- shift-pix) 0d0))
+          (t (values 0d0 0d0)))))
+
+;; FA2048: No extra correction yet - need to measure from clean baseline
+(defmethod %get-emmi-susi-crpix-systematic-adj ((inst %eso-ntt-emmi-rild-fa2048) image-number)
+  (declare (ignore image-number))
+  (values 0d0 0d0))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; EMMI-RILD FA2048 has a chip gap of 47 pixels (7.82" at bin=1).
+;; The left chip (image-number=2 for 2-ext, or 3,4 for 4-ext) needs
+;; its CRPIX1 increased by the gap to account for the pointing being
+;; on the other side of the gap.
+;; https://www.ls.eso.org/lasilla/sciops/ntt/emmi/emmiDetectors.html#gap
 (defmethod %get-emmi-susi-crpix1-chip-gap-naxis1-adj  ((inst %eso-ntt-emmi-rild-fa2048) image-number)
   (let* ((xbin (* 1d0 (%xbinning inst)))
-	 (xshift (/ -30 xbin)) ;; size of shift in pix
+	 ;; Gap is 47 pixels at bin=1 (7.82" / 0.166"/pix)
+	 (gap-pix (/ 47d0 xbin))
 	 (final-xshift ;; the shift applied according to image-number
 	   (cond
 	     ;; two ext version, one ext per chip
+	     ;; image 1 = right chip (no gap adjustment needed)
+	     ;; image 2 = left chip (add gap)
 	     ((or (typep inst 'eso-ntt-emmi-rild-fa2048/raw2ext)
 		  (typep inst 'eso-ntt-emmi-rild-fa2048/raw2ext-onechip)
 		  (typep inst 'eso-ntt-emmi-rild-fa2048/reduced)
 		  (typep inst 'eso-ntt-emmi-rild-fa2048/reduced-onechip))
-	      (if (= image-number 2) xshift 0d0))
-	     ;; four chip
+	      (if (= image-number 2) gap-pix 0d0))
+	     ;; four ext version: image 1,2 = right chip, image 3,4 = left chip
 	     ((or (typep inst 'eso-ntt-emmi-rild-fa2048/raw4ext)
-	   (typep inst 'eso-ntt-emmi-rild-fa2048/raw4ext-onechip))
-	      (if (member image-number '(3 4)) xshift 0d0))
+		  (typep inst 'eso-ntt-emmi-rild-fa2048/raw4ext-onechip))
+	      (if (member image-number '(3 4)) gap-pix 0d0))
 	     (t
-	      (error "%get-emmi-susi-crpix1-chip-gap-naxis1-adj failed for rild-ra2048 subtype ~A"
+	      (error "%get-emmi-susi-crpix1-chip-gap-naxis1-adj failed for rild-fa2048 subtype ~A"
 		     inst)))))
     final-xshift))
 
@@ -1014,7 +1097,7 @@ is not 0 or 90.
 		   (t
 		    (error "There should not be NUM-ORIG-EXTS=~A not in {1,2,4}"
 			   image-number)))))
-      #+nil ;; diagnostics
+      #+nil ;; diagnostics (set to #-nil to enable)
       (progn
 	(format t "is-extracted: ~A   primary-hdu-exist: ~A    num-hdus: ~A~%"
 		is-extracted-ext primary-hdu-exists num-hdus)
@@ -1026,19 +1109,30 @@ is not 0 or 90.
 	  (%get-emmi-susi-crpix-pointing-adj inst)
 	;; adjustment for chip gap
 	(let ((crpix1-chip-gap-adjust (%get-emmi-susi-crpix1-chip-gap-naxis1-adj inst image-number)))
-	  ;; 
-	  (multiple-value-bind (naxis1 naxis2)
-	      (instrument-id::%get-naxis1-naxis2 ff :extension extension)
-	    (let ((crpix1
-		    ;; start at chip center, then move by naxis1 offset
-		    (+ crpix1-pointing-adj
-		       crpix1-chip-gap-adjust
-		       (* 0.5d0 naxis1)
-		       (- (* naxis1 x-offsets))))
-		  (crpix2
-		    (+ crpix2-pointing-adj
-		       (* 0.5d0 naxis2))))
-	      (values crpix1 crpix2))))))))
+	  ;; systematic adjustment to center WCS on chip rather than pointing
+	  (multiple-value-bind (crpix1-systematic-adj crpix2-systematic-adj)
+	      (%get-emmi-susi-crpix-systematic-adj inst image-number)
+	    #+nil ;; more diagnostics
+	    (format t "  pointing-adj=(~,1F,~,1F) chip-gap=~,1F systematic=(~,1F,~,1F)~%"
+		    crpix1-pointing-adj crpix2-pointing-adj crpix1-chip-gap-adjust
+		    crpix1-systematic-adj crpix2-systematic-adj)
+	    ;;
+	    (multiple-value-bind (naxis1 naxis2)
+		(instrument-id::%get-naxis1-naxis2 ff :extension extension)
+	      #+nil ;; more diagnostics
+	      (format t "  naxis1=~A naxis2=~A~%" naxis1 naxis2)
+	      (let ((crpix1
+		      ;; start at chip center, then move by naxis1 offset
+		      (+ crpix1-pointing-adj
+			 crpix1-chip-gap-adjust
+			 crpix1-systematic-adj
+			 (* 0.5d0 naxis1)
+			 (- (* naxis1 x-offsets))))
+		    (crpix2
+		      (+ crpix2-pointing-adj
+			 crpix2-systematic-adj
+			 (* 0.5d0 naxis2))))
+		(values crpix1 crpix2)))))))))
 
 
     

@@ -115,12 +115,23 @@ where PSFs are ill determined.
     (values ra0 dec0 radius)))
 				     
 
-;; for now, demand that all FITS-FILE are a one-chip
-(defun %insist-on-onechip (fits-file)
-  (when (not (typep (instrument-id:identify-instrument fits-file)
-		    'instrument-id:onechip))
-    (error "Fits file ~A is not a ONECHIP fits file with one image extension.  
-PHOT-CALIB currently supports only ONECHIP fits files." fits-file)))
+;; Determine the extension to use for photometric calibration.
+;; If EXTENSION is provided, use it directly.
+;; Otherwise, for onechip instruments use get-image-extension-for-onechip-fits.
+;; For multi-chip instruments, EXTENSION must be provided.
+(defun %get-extension-for-phot-calib (fits-file extension)
+  "Return the extension to use for photometric calibration."
+  (cond
+    ;; User specified an extension - use it
+    (extension extension)
+    ;; Onechip instrument - get the science extension
+    ((typep (instrument-id:identify-instrument fits-file)
+            'instrument-id:onechip)
+     (instrument-id:get-image-extension-for-onechip-fits fits-file))
+    ;; Multi-chip instrument without extension specified - error
+    (t
+     (error "Fits file ~A is a multi-chip instrument. ~
+             You must specify :EXTENSION for photometric calibration." fits-file))))
 	    
 ;; for each object in catalog for which a valid mag-translation exists,
 ;; return a PCOBJ
@@ -384,23 +395,26 @@ PHOT-CALIB currently supports only ONECHIP fits files." fits-file)))
 		 
   
 
-(defun transfer-phot-calib-headers (fits-from fits-to)
+(defun transfer-phot-calib-headers (fits-from fits-to &key extension-from extension-to)
   "Copy phot-calib headers from one fits to another; useful for calibrating
-shifted stacks with static sky stacks."
-  (let* ((extension (instrument-id:get-image-extension-for-onechip-fits
-		     fits-from))
+shifted stacks with static sky stacks.
+EXTENSION-FROM and EXTENSION-TO default to the onechip extension if not provided."
+  (let* ((ext-from (or extension-from
+                       (instrument-id:get-image-extension-for-onechip-fits fits-from)))
+         (ext-to (or extension-to
+                     (instrument-id:get-image-extension-for-onechip-fits fits-to)))
 	 (headers
 	   (append
 	    '("PCZPMAG" "PCEZPMAG")
 	    (mapcar 'first
 		    (cf:read-fits-header-list
 		     fits-from
-		     :extension extension
+		     :extension ext-from
 		     :keyword-wildcard "PHOTCALIB.*")))))
     (cf:with-open-fits-file (fits-from ffin :mode :input)
       (cf:with-open-fits-file (fits-to ffout :mode :io)
-	(cf:move-to-extension ffin extension)
-	(cf:move-to-extension ffout extension)
+	(cf:move-to-extension ffin ext-from)
+	(cf:move-to-extension ffout ext-to)
 	(cf:write-fits-header fits-to
 			      "PHOTCALIB.CALIB-TRANSFER-FROM"
 			      (file-io:file-minus-dir fits-from))
@@ -414,23 +428,25 @@ shifted stacks with static sky stacks."
   
 
 	  
-(defun delete-all-photcalib-headers (fits)
-  "Delete all headers like PHOTCALIB.*"
-  (let ((extension (instrument-id:get-image-extension-for-onechip-fits fits)))
-    (cf:delete-fits-header fits "PHOTCALIB.*" :extension extension)
+(defun delete-all-photcalib-headers (fits &key extension)
+  "Delete all headers like PHOTCALIB.* from EXTENSION.
+If EXTENSION is not provided, uses the onechip extension for onechip instruments."
+  (let ((ext (or extension
+                 (instrument-id:get-image-extension-for-onechip-fits fits))))
+    (cf:delete-fits-header fits "PHOTCALIB.*" :extension ext)
     ;; delete old-style convenience headers too
-    (cf:delete-fits-header fits "PCZPMAG" :extension extension)
-    (cf:delete-fits-header fits "PCEZPMAG" :extension extension)))
+    (cf:delete-fits-header fits "PCZPMAG" :extension ext)
+    (cf:delete-fits-header fits "PCEZPMAG" :extension ext)))
     
     
 ;; compute the center and radius of a fits file using the wcs
 ;; return (values ra0 dec0 radius) where radius is grown
 ;; from actual field radius by EXPANSION-FACTOR
-(defun %get-fits-bounds (fits-file &key (expansion-factor 1.5))
+(defun %get-fits-bounds (fits-file extension &key (expansion-factor 1.5))
   (cf:with-open-fits-file (fits-file ff :mode :input)
-    (cf:move-to-extension ff (instrument-id:get-image-extension-for-onechip-fits fits-file))
+    (cf:move-to-extension ff extension)
     (let ((wcs (or (cf:read-wcs ff)
-		   (error "WCS not found in ~A" fits-file)))
+		   (error "WCS not found in ~A extension ~A" fits-file extension)))
 	  (naxis1 (or (cf:read-fits-header ff "NAXIS1")
 		      (error "NAXIS1 not found in ~A fits-file" fits-file)))
 	(naxis2 (or (cf:read-fits-header ff "NAXIS2")
@@ -450,6 +466,7 @@ shifted stacks with static sky stacks."
 (defun calibrate-image-using-catalog/cog
     (catalog fits-file
      &key
+       (extension nil)
        (filter nil)
        (cog-apertures terapix::*curve-of-growth-apertures*)
        (phot-aperture nil)
@@ -472,19 +489,23 @@ shifted stacks with static sky stacks."
   "Uses ASTRO-CATALOG:CATALOG to calibrate FITS-FILE in FILTER (a
 member of *ALLOWED-FILTERS*) with aperture photometry.
 
+EXTENSION is the FITS extension to calibrate (1-based). If not provided,
+uses the onechip extension for onechip instruments. For multi-chip
+instruments, EXTENSION must be specified.
+
 COG-APERTURES is the apertures to compute the curve of growth.
 PHOT-APERTURE is the aperture to use for the photometry - it
                  must be one of COG-APERTURES.  If NIL, use
                  PHOT-APERTURE-DMAG to pick the first aperture that
-                 contains less than PHOT-APERTURE-DMAG magnitudes 
-PHOT-APERTURE-DMAG is (if PHOT-APERTURE isn't specified) the 
+                 contains less than PHOT-APERTURE-DMAG magnitudes
+PHOT-APERTURE-DMAG is (if PHOT-APERTURE isn't specified) the
                    dmag along the curve of growth that is used to
                    pick the aperture for performing photometry.
 MIN-COG-STARS is the minimal number of stars for computing curve-of-growth
 MIN-CALIB-STARS is the minimal number of stars for performing a calibration
 MAX-CATALOG-MAG is the dimmest catalog object to use for calibration
 MIN-CATALOG-MAG is the brightest catalog object to use for calibration
-EXTRA-ERROR     is an extra error contribution to overcome excessively 
+EXTRA-ERROR     is an extra error contribution to overcome excessively
                 optimistic input catalogs.
 
 The process is
@@ -494,7 +515,7 @@ The process is
           a. insert into catalog
           b. insert into fits file (this will mess up MD5 used by
              sextractor for computing whether to re-run catalog)
-       3. compute set of PCOBJ using corrected ap magitudes from curve  
+       3. compute set of PCOBJ using corrected ap magitudes from curve
           of growth
        4. compute a magnitude offset for the full corrected mag
           and write into fits header for file, and catalog
@@ -502,23 +523,24 @@ The process is
              PHOTCALIB.ZPMAGERR - the error on zeropoint
              PHOTCALIB.NSTARS   - the number of stars used"
 
-  (%insist-on-onechip fits-file) ;; must be onechip fits file
-  (when (and phot-aperture (not (member phot-aperture cog-apertures)))
-    (error "The primary PHOT-APERTURE=~A must be one of curve-of-growth COG-APERTURES=~A"
-	   phot-aperture cog-apertures))
-  
-  (when (not (or phot-aperture phot-aperture-dmag))
-    (error "One of PHOT-APERTURE or PHOT-APERTURE-DMAG must be set."))
-  
+  (let ((ext (%get-extension-for-phot-calib fits-file extension)))
+    (when (and phot-aperture (not (member phot-aperture cog-apertures)))
+      (error "The primary PHOT-APERTURE=~A must be one of curve-of-growth COG-APERTURES=~A"
+             phot-aperture cog-apertures))
 
-  (when (zerop (astro-catalog:astro-catalog-n catalog))
-    (error "Catalog ~A has no stars to use as calibrators." catalog))
+    (when (not (or phot-aperture phot-aperture-dmag))
+      (error "One of PHOT-APERTURE or PHOT-APERTURE-DMAG must be set."))
 
-  (let* ((std-filter (or filter
-			 (instrument-id:get-standard-filter-for-fits fits-file)
-			 (error "Filter can't be inferred for ~A" fits-file)))
-	 (working-dir (terapix:get-fits-directory 
-		       fits-file :if-does-not-exist t))
+
+    (when (zerop (astro-catalog:astro-catalog-n catalog))
+      (error "Catalog ~A has no stars to use as calibrators." catalog))
+
+    (let* ((std-filter (or filter
+                           (instrument-id:get-standard-filter-for-fits fits-file)
+                           (error "Filter can't be inferred for ~A" fits-file)))
+           (working-dir (terapix:get-fits-directory
+                         fits-file :if-does-not-exist t
+                         :extension ext))
 	 (phot-calib-catalog-file "sex_phot_calib_ap_cog.cat")
 	 (phot-calib-catalog-file-fullpath
 	   (format nil "~A/~A" working-dir phot-calib-catalog-file))
@@ -665,73 +687,71 @@ The process is
 		  in (if write-headers
 			 `(,fits-file ,phot-calib-catalog-file-fullpath)
 			 `(,phot-calib-catalog-file-fullpath))
-		for extension
+		for hext
 		  in (if write-headers
-			 `(,(instrument-id:get-image-extension-for-onechip-fits
-			     fits-file)
-			   1)
+			 `(,ext 1)
 			 '(1))
 		do
-		   (cf:write-fits-header 
-		    hfits "PHOTCALIB.MAGTYPE" "MAG_AP_COG" 
+		   (cf:write-fits-header
+		    hfits "PHOTCALIB.MAGTYPE" "MAG_AP_COG"
 		    :comment "MAG_AP corrected for COG"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
 		    hfits "PHOTCALIB.MAGAUTOCOR" mag-auto-correction
 		    :comment "fix MAG_AUTO for BRIGHT obj"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
-		    hfits "PHOTCALIB.ZPMAG" zp 
+		    hfits "PHOTCALIB.ZPMAG" zp
 		    :comment "ZP to add to M=-2.5log10(flux/ADU)"
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.ZPMAGERR" zperr
 		    :comment "Error on PHOTCALIB.ZPMAG"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
-		    hfits "PCZPMAG" zp 
+		    hfits "PCZPMAG" zp
 		    :comment "Synonym for PHOTCALIB.ZPMAG"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
-		    hfits "PCEZPMAG" zperr 
+		    hfits "PCEZPMAG" zperr
 		    :comment "Synonym for PHOTCALIB.ZPMAGERR"
-		    :extension extension)
-		   (cf:write-fits-header 
-		    hfits "PHOTCALIB.NSTARS" nstars 
+		    :extension hext)
+		   (cf:write-fits-header
+		    hfits "PHOTCALIB.NSTARS" nstars
 		    :comment "No. of stars used for PHOTCALIB.ZPMAG"
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.APERTURE" %phot-aperture
 		    :comment "Aperture (pix) for PHOTCALIB.ZPMAG"
-		    :extension extension)
-		   (cf:write-fits-header 
-		    hfits "PHOTCALIB.FILTER" std-filter 
+		    :extension hext)
+		   (cf:write-fits-header
+		    hfits "PHOTCALIB.FILTER" std-filter
 		    :comment "Assumed filter in PHOTCALIB package"
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.CATALOGTYPE" (type-of catalog)
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.OK" is-ok
 		    :comment "Do we trust this calib?"
-		    :extension extension)
+		    :extension hext)
 		   ;;
 		   (when zptel
 		     (cf:write-fits-header
 		      hfits "PHOTCALIB.ZPTEL"  zptel
 		      :comment "Mag giving 1e-/sec"
-		      :extension extension))
+		      :extension hext))
 		   ;;
 		   (when mag-5-sigma
 		      (cf:write-fits-header
 		      hfits "PHOTCALIB.MAG-5-SIGMA" mag-5-sigma
 		      :comment "Mag giving 5 sigma err"
-		      :extension extension))
+		      :extension hext))
 		   (when mag-10-sigma
 		     (cf:write-fits-header
 		      hfits "PHOTCALIB.MAG-10-SIGMA" mag-10-sigma
 		      :comment "Mag giving 10 sigma err"
-		      :extension extension))
+		      :extension hext))
 		)
 	  	  ;;
 	  (make-phot-calib-result
@@ -746,13 +766,14 @@ The process is
 	   :ok is-ok
 	   :std-filter std-filter
 	   :matches matching-pairs
-	   :match-file matches-file-fullpath))))))
+	   :match-file matches-file-fullpath)))))))
 
 
 
 (defun calibrate-image-with-catalog-type/cog
-    (catalog-type fits-file 
+    (catalog-type fits-file
      &key
+       (extension nil)
        (filter nil)
        (cog-apertures terapix::*curve-of-growth-apertures*)
        (phot-aperture nil)
@@ -778,44 +799,49 @@ The process is
   "Like CALIBRATE-IMAGE-USING-CATALOG (see documentation) except that it takes CATALOG-TYPE
 instead of CATALOG, computes the fits bounds, and downloads the catalog.
 
-FILTER must be a standard filter keyword like :VJ or :GSDSS. If it 
+EXTENSION is the FITS extension to calibrate (1-based). If not provided,
+uses the onechip extension for onechip instruments. For multi-chip
+instruments, EXTENSION must be specified.
+
+FILTER must be a standard filter keyword like :VJ or :GSDSS. If it
 is NIL, then INSTRUMENT-ID:GET-STANDARD-FILTER-FOR-FITS
 is used to infer the filter.
 
 CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
 
-  (%insist-on-onechip fits-file) ;; must be onechip fits file
-  (when (not (member catalog-type astro-catalog:*allowed-cache-catalog-types*))
-    (error "CATALOG-TYPE=~A is not one of ~A" 
-	   catalog-type astro-catalog:*allowed-cache-catalog-types*))
-  (when write-headers (delete-all-photcalib-headers fits-file))
-  (multiple-value-bind (ra0 dec0 radius)
-      (%get-fits-bounds fits-file)
-    (let ((catalog (astro-catalog:get-cached-catalog-object 
-		    ra0 dec0 (min max-catalog-radius radius)
-		    catalog-type
-		    :catalog-cache catalog-cache)))
-      (calibrate-image-using-catalog/cog 
-       catalog
-       fits-file
-       :filter filter
-       :cog-apertures cog-apertures
-       :phot-aperture phot-aperture
-       :phot-aperture-dmag phot-aperture-dmag
-       :min-cog-stars min-cog-stars
-       :min-calib-stars min-calib-stars
-       :min-cog-flux min-cog-flux
-       :max-catalog-mag max-catalog-mag
-       :min-catalog-mag min-catalog-mag
-       :md5-avoid-rerun md5-avoid-rerun
-       :min-obj-flux min-obj-flux
-       :sextractor-reject-flags sextractor-reject-flags
-       :stars-only stars-only
-       :extra-error extra-error
-       :tol/arcsec tol/arcsec
-       :satur-level satur-level
-       :peakflux-max peakflux-max
-       :write-headers t))))
+  (let ((ext (%get-extension-for-phot-calib fits-file extension)))
+    (when (not (member catalog-type astro-catalog:*allowed-cache-catalog-types*))
+      (error "CATALOG-TYPE=~A is not one of ~A"
+             catalog-type astro-catalog:*allowed-cache-catalog-types*))
+    (when write-headers (delete-all-photcalib-headers fits-file :extension ext))
+    (multiple-value-bind (ra0 dec0 radius)
+        (%get-fits-bounds fits-file ext)
+      (let ((catalog (astro-catalog:get-cached-catalog-object
+                      ra0 dec0 (min max-catalog-radius radius)
+                      catalog-type
+                      :catalog-cache catalog-cache)))
+        (calibrate-image-using-catalog/cog
+         catalog
+         fits-file
+         :extension ext
+         :filter filter
+         :cog-apertures cog-apertures
+         :phot-aperture phot-aperture
+         :phot-aperture-dmag phot-aperture-dmag
+         :min-cog-stars min-cog-stars
+         :min-calib-stars min-calib-stars
+         :min-cog-flux min-cog-flux
+         :max-catalog-mag max-catalog-mag
+         :min-catalog-mag min-catalog-mag
+         :md5-avoid-rerun md5-avoid-rerun
+         :min-obj-flux min-obj-flux
+         :sextractor-reject-flags sextractor-reject-flags
+         :stars-only stars-only
+         :extra-error extra-error
+         :tol/arcsec tol/arcsec
+         :satur-level satur-level
+         :peakflux-max peakflux-max
+         :write-headers t)))))
 
 
 
@@ -824,8 +850,9 @@ CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
 ;; a version that uses MAG_AUTO for images for which we can't get COG
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun calibrate-image-using-catalog/mag-auto
-    (catalog fits-file 
+    (catalog fits-file
      &key
+       (extension nil)
        (filter nil)
        (min-calib-stars 20)
        (max-catalog-mag 21)
@@ -846,7 +873,11 @@ CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
   "Uses ASTRO-CATALOG:CATALOG to calibrate FITS-FILE in FILTER (a
 member of *ALLOWED-FILTERS*) with aperture photometry.
 
-FILTER must be a standard filter keyword like :VJ or :GSDSS. If it 
+EXTENSION is the FITS extension to calibrate (1-based). If not provided,
+uses the onechip extension for onechip instruments. For multi-chip
+instruments, EXTENSION must be specified.
+
+FILTER must be a standard filter keyword like :VJ or :GSDSS. If it
 is NIL, then INSTRUMENT-ID:GET-STANDARD-FILTER-FOR-FITS
 is used to infer the filter.
 
@@ -854,7 +885,7 @@ Uses sextractor MAG_AUTO instead of computing a curve of growth.
 
 If USE-CORRECTED-APERTURES is set, then a pseudo- curve of growth is
 used to correct the smallest aperture MAG_APER with most of the flux,
-rather than using MAG_AUTO.   
+rather than using MAG_AUTO.
 
 MIN-CALIB-STARS is the minimal number of stars for performing a calibration
 MAX-CATALOG-MAG is the dimmest catalog object to use for calibration
@@ -879,16 +910,15 @@ Tests show that values of PHOT_AUTOPARAMS larger than 5,5 capture over
 99% of the light.  See tests in phot-calib-tests/mag-auto-expand.lisp
 "
 
-  (%insist-on-onechip fits-file) ;; must be onechip fits file
-  (when (zerop (astro-catalog:astro-catalog-n catalog))
-    (error "Catalog ~A has no stars to use as calibrators." catalog))
-  (when write-headers (delete-all-photcalib-headers fits-file))
-  (let* ((std-filter (or filter
-			 (instrument-id:get-standard-filter-for-fits fits-file)
-			 (error "Filter can't be inferred for ~A" fits-file)))
-	 (ext (instrument-id:get-image-extension-for-onechip-fits fits-file))
-	 (gain (or (instrument-id:get-gain-for-fits fits-file)
-		   (error "Could not get GAIN for ~A" fits-file)))
+  (let ((ext (%get-extension-for-phot-calib fits-file extension)))
+    (when (zerop (astro-catalog:astro-catalog-n catalog))
+      (error "Catalog ~A has no stars to use as calibrators." catalog))
+    (when write-headers (delete-all-photcalib-headers fits-file :extension ext))
+    (let* ((std-filter (or filter
+                           (instrument-id:get-standard-filter-for-fits fits-file)
+                           (error "Filter can't be inferred for ~A" fits-file)))
+           (gain (or (instrument-id:get-gain-for-fits fits-file :extension ext)
+                     (error "Could not get GAIN for ~A" fits-file)))
 	 (working-dir (terapix:get-fits-directory 
 		       fits-file :if-does-not-exist t
 		       :extension ext))
@@ -1045,68 +1075,66 @@ Tests show that values of PHOT_AUTOPARAMS larger than 5,5 capture over
 		  in (if write-headers
 			 `(,fits-file ,phot-calib-catalog-file-fullpath)
 			 `(,phot-calib-catalog-file-fullpath))
-		for extension
+		for hext
 		  in (if write-headers
-			 `(,(instrument-id:get-image-extension-for-onechip-fits
-			     fits-file)
-			   1)
+			 `(,ext 1)
 			 '(1))
 		do
-		   (cf:write-fits-header 
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.MAGTYPE" "MAG_AUTO"
 		    :comment "sextractor MAG_AUTO"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
 		    hfits "PHOTCALIB.MAGAUTOCOR" 0.0
 		    :comment "Addit. cor. for MAG_AUTO"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
-		    hfits "PHOTCALIB.ZPMAG" zp 
+		    hfits "PHOTCALIB.ZPMAG" zp
 		    :comment "ZP to add to M=-2.5log10(flux/ADU)"
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.ZPMAGERR" zperr
 		    :comment "Error on PHOTCALIB.ZPMAG"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
-		    hfits "PCZPMAG" zp 
+		    hfits "PCZPMAG" zp
 		    :comment "Synonym for PHOTCALIB.ZPMAG"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
-		    hfits "PCEZPMAG" zperr 
+		    hfits "PCEZPMAG" zperr
 		    :comment "Synonym for PHOTCALIB.ZPMAGERR"
-		    :extension extension)
-		   (cf:write-fits-header 
-		    hfits "PHOTCALIB.NSTARS" nstars 
+		    :extension hext)
+		   (cf:write-fits-header
+		    hfits "PHOTCALIB.NSTARS" nstars
 		    :comment "No. of stars used for PHOTCALIB.ZPMAG"
-		    :extension extension)
-		   (cf:write-fits-header 
-		    hfits "PHOTCALIB.FILTER" std-filter 
+		    :extension hext)
+		   (cf:write-fits-header
+		    hfits "PHOTCALIB.FILTER" std-filter
 		    :comment "Assumed filter in PHOTCALIB package"
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.CATALOGTYPE" (type-of catalog)
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.OK" is-ok
 		    :comment "Do we trust this calib?"
-		    :extension extension)
+		    :extension hext)
 		   (when zptel
 		     (cf:write-fits-header
 		      hfits "PHOTCALIB.ZPTEL"  zptel
 		      :comment "Mag giving 1e-/sec"
-		      :extension extension))
+		      :extension hext))
 		   ;;
 		   (when mag-5-sigma
 		      (cf:write-fits-header
 		      hfits "PHOTCALIB.MAG-5-SIGMA" mag-5-sigma
 		      :comment "Mag giving 5 sigma err"
-		      :extension extension))
+		      :extension hext))
 		   (when mag-10-sigma
 		     (cf:write-fits-header
 		      hfits "PHOTCALIB.MAG-10-SIGMA" mag-10-sigma
 		      :comment "Mag giving 10 sigma err"
-		      :extension extension))
+		      :extension hext))
 		)
 	  ;;
 	  (make-phot-calib-result
@@ -1121,12 +1149,13 @@ Tests show that values of PHOT_AUTOPARAMS larger than 5,5 capture over
 	   :ok is-ok
 	   :std-filter std-filter
 	   :matches matching-pairs
-	   :match-file matches-file-fullpath))))))
+	   :match-file matches-file-fullpath)))))))
 
 
 (defun calibrate-image-with-catalog-type/mag-auto
     (catalog-type fits-file
      &key
+       (extension nil)
        (filter nil)
        (min-calib-stars 20)
        (max-catalog-radius 1.0)  ;; limit the catalog radius to this many deg
@@ -1151,41 +1180,46 @@ Tests show that values of PHOT_AUTOPARAMS larger than 5,5 capture over
 except that it takes CATALOG-TYPE instead of CATALOG, computes the
 fits bounds, and downloads the catalog.
 
-FILTER must be a standard filter keyword like :VJ or :GSDSS. If it 
+EXTENSION is the FITS extension to calibrate (1-based). If not provided,
+uses the onechip extension for onechip instruments. For multi-chip
+instruments, EXTENSION must be specified.
+
+FILTER must be a standard filter keyword like :VJ or :GSDSS. If it
 is NIL, then INSTRUMENT-ID:GET-STANDARD-FILTER-FOR-FITS
 is used to infer the filter.
 
 CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
 
-  (%insist-on-onechip fits-file) ;; must be onechip fits file
-  (when (not (member catalog-type astro-catalog:*allowed-cache-catalog-types*))
-    (error "CATALOG-TYPE=~A is not one of ~A" 
-	   catalog-type astro-catalog:*allowed-cache-catalog-types*))
-  (multiple-value-bind (ra0 dec0 radius)
-      (%get-fits-bounds fits-file)
-    (let ((catalog (astro-catalog:get-cached-catalog-object 
-		    ra0 dec0 (min max-catalog-radius radius)
-		    catalog-type
-		    :catalog-cache catalog-cache)))
+  (let ((ext (%get-extension-for-phot-calib fits-file extension)))
+    (when (not (member catalog-type astro-catalog:*allowed-cache-catalog-types*))
+      (error "CATALOG-TYPE=~A is not one of ~A"
+             catalog-type astro-catalog:*allowed-cache-catalog-types*))
+    (multiple-value-bind (ra0 dec0 radius)
+        (%get-fits-bounds fits-file ext)
+      (let ((catalog (astro-catalog:get-cached-catalog-object
+                      ra0 dec0 (min max-catalog-radius radius)
+                      catalog-type
+                      :catalog-cache catalog-cache)))
 
-      (calibrate-image-using-catalog/mag-auto 
-       catalog fits-file 
-       :filter filter
-       :min-obj-flux    min-obj-flux
-       :sextractor-reject-flags sextractor-reject-flags
-       :stars-only stars-only
-       :min-calib-stars min-calib-stars
-       :max-catalog-mag max-catalog-mag
-       :min-catalog-mag min-catalog-mag
-       :phot-autoparams phot-autoparams
-       :phot-apertures phot-apertures
-       :md5-avoid-rerun md5-avoid-rerun
-       :tol/arcsec tol/arcsec
-       :extra-error extra-error
-       :use-corrected-apertures use-corrected-apertures
-       :satur-level satur-level
-       :peakflux-max peakflux-max
-       :write-headers write-headers))))
+        (calibrate-image-using-catalog/mag-auto
+         catalog fits-file
+         :extension ext
+         :filter filter
+         :min-obj-flux    min-obj-flux
+         :sextractor-reject-flags sextractor-reject-flags
+         :stars-only stars-only
+         :min-calib-stars min-calib-stars
+         :max-catalog-mag max-catalog-mag
+         :min-catalog-mag min-catalog-mag
+         :phot-autoparams phot-autoparams
+         :phot-apertures phot-apertures
+         :md5-avoid-rerun md5-avoid-rerun
+         :tol/arcsec tol/arcsec
+         :extra-error extra-error
+         :use-corrected-apertures use-corrected-apertures
+         :satur-level satur-level
+         :peakflux-max peakflux-max
+         :write-headers write-headers)))))
 
 
 
@@ -1193,8 +1227,9 @@ CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
 ;; a version that uses fixed MAG_APER
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun calibrate-image-using-catalog/ap
-    (catalog fits-file 
+    (catalog fits-file
      &key
+       (extension nil)
        (filter nil)
        (aperture 20) ;; aperture diameter in pix
        (min-calib-stars 20)
@@ -1211,9 +1246,13 @@ CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
        (peakflux-max    40000)
        (write-headers t))  ;; backup for satur-level
   "Uses ASTRO-CATALOG:CATALOG to calibrate FITS-FILE in FILTER (a
-member of *ALLOWED-FILTERS*) with aperture photometry. 
+member of *ALLOWED-FILTERS*) with aperture photometry.
 
-FILTER must be a standard filter keyword like :VJ or :GSDSS. If it 
+EXTENSION is the FITS extension to calibrate (1-based). If not provided,
+uses the onechip extension for onechip instruments. For multi-chip
+instruments, EXTENSION must be specified.
+
+FILTER must be a standard filter keyword like :VJ or :GSDSS. If it
 is NIL, then INSTRUMENT-ID:GET-STANDARD-FILTER-FOR-FITS
 is used to infer the filter.
 
@@ -1232,18 +1271,17 @@ The process is
              PHOTCALIB.ZPMAG    - the zeropoint corrected to large aperture
              PHOTCALIB.ZPMAGERR - the error on zeropoint
              PHOTCALIB.NSTARS   - the number of stars used"
-  
-  (%insist-on-onechip fits-file) ;; must be onechip fits file
-  (when (zerop (astro-catalog:astro-catalog-n catalog))
-    (error "Catalog ~A has no stars to use as calibrators." catalog))
-  (when write-headers (delete-all-photcalib-headers fits-file))
-  (let* ((std-filter (or filter
-			 (instrument-id:get-standard-filter-for-fits fits-file)
-			 (error "Filter can't be inferred for ~A" fits-file)))
-	 (ext (instrument-id:get-image-extension-for-onechip-fits fits-file))
-	 (working-dir (terapix:get-fits-directory 
-		       fits-file :if-does-not-exist t
-		       :extension ext))
+
+  (let ((ext (%get-extension-for-phot-calib fits-file extension)))
+    (when (zerop (astro-catalog:astro-catalog-n catalog))
+      (error "Catalog ~A has no stars to use as calibrators." catalog))
+    (when write-headers (delete-all-photcalib-headers fits-file :extension ext))
+    (let* ((std-filter (or filter
+                           (instrument-id:get-standard-filter-for-fits fits-file)
+                           (error "Filter can't be inferred for ~A" fits-file)))
+           (working-dir (terapix:get-fits-directory
+                         fits-file :if-does-not-exist t
+                         :extension ext))
 	 (phot-calib-catalog-file "sex_phot_calib_mag_ap.cat")
 	 (matches-file (format nil "sex_phot_calib_mag_ap_matches_~A.csv"
 			       (type-of catalog)))
@@ -1339,72 +1377,69 @@ The process is
 		  in (if write-headers
 			 `(,fits-file ,phot-calib-catalog-file-fullpath)
 			 `(,phot-calib-catalog-file-fullpath))
-		for extension
+		for hext
 		  in (if write-headers
-			 `(,(instrument-id:get-image-extension-for-onechip-fits
-			     fits-file)
-			   1)
+			 `(,ext 1)
 			 '(1))
 		do
-		   (cf:write-fits-header 
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.MAGTYPE" "MAG_AP"
 		    :comment "fixed aperture mag"
-		    :extension extension)
-		   (cf:write-fits-header 
-		    hfits "PHOTCALIB.APERTURE" aperture)
+		    :extension hext)
+		   (cf:write-fits-header
+		    hfits "PHOTCALIB.APERTURE" aperture
+		    :extension hext)
 		   ;; will we want to to put this in?
 		   ;;(cf:write-fits-header
 		   ;; hfits "PHOTCALIB.MAGAUTOCOR" 0.0
 		   ;; :comment "Addit. cor. for MAG_AUTO")
 		   (cf:write-fits-header
-		    hfits "PHOTCALIB.ZPMAG" zp 
+		    hfits "PHOTCALIB.ZPMAG" zp
 		    :comment "ZP to add to M=-2.5log10(flux/ADU)"
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.ZPMAGERR" zperr
 		    :comment "Error on PHOTCALIB.ZPMAG"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
-		    hfits "PCZPMAG" zp 
+		    hfits "PCZPMAG" zp
 		    :comment "Synonym for PHOTCALIB.ZPMAG"
-		    :extension extension)
+		    :extension hext)
 		   (cf:write-fits-header
-		    hfits "PCEZPMAG" zperr 
+		    hfits "PCEZPMAG" zperr
 		    :comment "Synonym for PHOTCALIB.ZPMAGERR"
-		    :extension extension)
-		   (cf:write-fits-header 
-		    hfits "PHOTCALIB.NSTARS" nstars 
+		    :extension hext)
+		   (cf:write-fits-header
+		    hfits "PHOTCALIB.NSTARS" nstars
 		    :comment "No. of stars used for PHOTCALIB.ZPMAG"
-		    :extension extension)
-		   (cf:write-fits-header 
-		    hfits "PHOTCALIB.FILTER" std-filter 
+		    :extension hext)
+		   (cf:write-fits-header
+		    hfits "PHOTCALIB.FILTER" std-filter
 		    :comment "Assumed filter in PHOTCALIB package"
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.CATALOGTYPE" (type-of catalog)
-		    :extension extension)
-		   (cf:write-fits-header 
+		    :extension hext)
+		   (cf:write-fits-header
 		    hfits "PHOTCALIB.OK" is-ok
 		    :comment "Do we trust this calib?"
-		    :extension extension)
+		    :extension hext)
 		   (when zptel
 		     (cf:write-fits-header
 		      hfits "PHOTCALIB.ZPTEL"  zptel
 		      :comment "Mag giving 1e-/sec"
-		      :extension extension))
+		      :extension hext))
 		   ;;
 		   (when mag-5-sigma
 		     (cf:write-fits-header
 		      hfits "PHOTCALIB.MAG-5-SIGMA" mag-5-sigma
 		      :comment "Mag giving 5 sigma err"
-		      :extension extension))
+		      :extension hext))
 		   (when mag-10-sigma
 		     (cf:write-fits-header
 		      hfits "PHOTCALIB.MAG-10-SIGMA" mag-10-sigma
 		      :comment "Mag giving 10 sigma err"
-		      :extension extension))
-		)
-		   
+		      :extension hext)))
 	  ;;
 	  (make-phot-calib-result
 	   :catalog (type-of catalog)
@@ -1418,12 +1453,13 @@ The process is
 	   :ok is-ok
 	   :std-filter std-filter
 	   :matches matching-pairs
-	   :match-file matches-file-fullpath))))))
+	   :match-file matches-file-fullpath)))))))
 
 
 (defun calibrate-image-with-catalog-type/ap
     (catalog-type fits-file
      &key
+       (extension nil)
        (filter nil)
        (aperture 20)
        (min-calib-stars 20)
@@ -1446,37 +1482,44 @@ The process is
 except that it takes CATALOG-TYPE instead of CATALOG, computes the
 fits bounds, and downloads the catalog.
 
-FILTER must be a standard filter keyword like :VJ or :GSDSS. If it 
+EXTENSION is the FITS extension to calibrate (1-based). If not provided,
+uses the onechip extension for onechip instruments. For multi-chip
+instruments, EXTENSION must be specified.
+
+FILTER must be a standard filter keyword like :VJ or :GSDSS. If it
 is NIL, then INSTRUMENT-ID:GET-STANDARD-FILTER-FOR-FITS
 is used to infer the filter.
 
 CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
-  (%insist-on-onechip fits-file) ;; must be onechip fits file
-  (when (not (member catalog-type astro-catalog:*allowed-cache-catalog-types*))
-    (error "CATALOG-TYPE=~A is not one of ~A" 
-	   catalog-type astro-catalog:*allowed-cache-catalog-types*))
-  (multiple-value-bind (ra0 dec0 radius)
-      (%get-fits-bounds fits-file)
-    (let ((catalog (astro-catalog:get-cached-catalog-object 
-		    ra0 dec0 (min max-catalog-radius radius)
-		    catalog-type
-		    :catalog-cache catalog-cache)))
-      (calibrate-image-using-catalog/ap
-       catalog fits-file 
-       :filter filter
-       :aperture aperture
-       :min-obj-flux    min-obj-flux
-       :sextractor-reject-flags sextractor-reject-flags
-       :stars-only stars-only
-       :extra-error extra-error
-       :min-calib-stars min-calib-stars
-       :max-catalog-mag max-catalog-mag
-       :min-catalog-mag min-catalog-mag
-       :md5-avoid-rerun md5-avoid-rerun
-       :tol/arcsec tol/arcsec
-       :satur-level satur-level
-       :peakflux-max peakflux-max
-       :write-headers write-headers))))
+
+  (let ((ext (%get-extension-for-phot-calib fits-file extension)))
+    (when (not (member catalog-type astro-catalog:*allowed-cache-catalog-types*))
+      (error "CATALOG-TYPE=~A is not one of ~A"
+             catalog-type astro-catalog:*allowed-cache-catalog-types*))
+    (when write-headers (delete-all-photcalib-headers fits-file :extension ext))
+    (multiple-value-bind (ra0 dec0 radius)
+        (%get-fits-bounds fits-file ext)
+      (let ((catalog (astro-catalog:get-cached-catalog-object
+                      ra0 dec0 (min max-catalog-radius radius)
+                      catalog-type
+                      :catalog-cache catalog-cache)))
+        (calibrate-image-using-catalog/ap
+         catalog fits-file
+         :extension ext
+         :filter filter
+         :aperture aperture
+         :min-obj-flux    min-obj-flux
+         :sextractor-reject-flags sextractor-reject-flags
+         :stars-only stars-only
+         :extra-error extra-error
+         :min-calib-stars min-calib-stars
+         :max-catalog-mag max-catalog-mag
+         :min-catalog-mag min-catalog-mag
+         :md5-avoid-rerun md5-avoid-rerun
+         :tol/arcsec tol/arcsec
+         :satur-level satur-level
+         :peakflux-max peakflux-max
+         :write-headers write-headers)))))
 
 
 

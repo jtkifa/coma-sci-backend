@@ -78,39 +78,48 @@
 		 when median
 		   collect (list i median fits ext))))
 
-    (loop with ngood = 0
-	  ;; sort by randomization field
-	  for ext-stuff in ext-stuff-list
-	  for i = (first ext-stuff) and med = (second ext-stuff)
-	  and fits = (file-io:file-minus-dir (third ext-stuff))
-	  and ext = (1- (fourth ext-stuff))
-	  for counts-hi = (> med max-counts)
-	  for counts-lo = (< med min-counts)
-	  until (= ngood nfringe-max)
-	  do (when counts-hi
-	       (logger:writelog
-		logger
-		(format nil "ERROR: Input fringe ~A:~A rejected: counts ~A>~A"
-			fits ext  med max-counts)))
-	     (when counts-lo
-	       (logger:writelog
-		logger
-		(format nil "Input fringe ~A:~A rejected: counts ~A<~A"
-			fits ext med min-counts)))
-	     ;;
-	  when (not (or counts-lo counts-hi))
-	    do (incf ngood)
-	       (logger:writelog
-		logger
-		(format nil "Input fringe ~A:~A accepted: counts = ~A"
-			fits ext med))
-	    and
-	      ;; scale the image to a median of 1, and return
-	      collect  (let* ((imsec (funcall imsec-generator i))
-			      (im (cf:image-section-data imsec)))
-			 (imutils:im-scale im (/ 1.0 med) :image-out im)
-			 (%fringe-nuke-outlier-pix imsec reduction-plan)
-			 imsec))))
+    (let* ((min-frames (reduction-plan-min-fringe-frames reduction-plan))
+	   (accepted-imsecs
+	     (loop with ngood = 0
+		   ;; sort by randomization field
+		   for ext-stuff in ext-stuff-list
+		   for i = (first ext-stuff) and med = (second ext-stuff)
+		   and fits = (file-io:file-minus-dir (third ext-stuff))
+		   and ext = (1- (fourth ext-stuff))
+		   for counts-hi = (> med max-counts)
+		   for counts-lo = (< med min-counts)
+		   until (= ngood nfringe-max)
+		   do (when counts-hi
+			(logger:writelog
+			 logger
+			 (format nil "ERROR: Input fringe ~A:~A rejected: counts ~A>~A"
+				 fits ext  med max-counts)))
+		      (when counts-lo
+			(logger:writelog
+			 logger
+			 (format nil "Input fringe ~A:~A rejected: counts ~A<~A"
+				 fits ext med min-counts)))
+		      ;;
+		   when (not (or counts-lo counts-hi))
+		     do (incf ngood)
+			(logger:writelog
+			 logger
+			 (format nil "Input fringe ~A:~A accepted: counts = ~A"
+				 fits ext med))
+		     and
+		       ;; scale the image to a median of 1, and return
+		       collect  (let* ((imsec (funcall imsec-generator i))
+				       (im (cf:image-section-data imsec)))
+				  (imutils:im-scale im (/ 1.0 med) :image-out im)
+				  (%fringe-nuke-outlier-pix imsec reduction-plan)
+				  imsec))))
+      ;; Check minimum frame requirement - return NIL to skip this extension
+      (when (< (length accepted-imsecs) min-frames)
+	(logger:writelog logger
+			 (format nil "Skipping fringe: only ~A valid inputs, need at least ~A for star removal"
+				 (length accepted-imsecs) min-frames))
+	(return-from %fringecombine-imsec-filter-function nil))
+      accepted-imsecs)))
     
 
 
@@ -165,17 +174,17 @@ that is not in range [MIN-COUNTS, MAX-COUNTS]."
 	      median-nsample)))
 
       
-      (stack-images fits-list fits-out   
-		    :reduction-plan reduction-plan
-		    :template-fits template-fits
-		    :stack-type stack-type
-		    :count-header "IMRED.NFRINGE"
-		    :if-exists if-exists		 
-		    :final-array-function #'final-array-function
-		    :imsec-filter-function #'imsec-filter-function)))
-  ;;
-  (cf:write-fits-header fits-out "IMRED.CAL" T
-			:comment "This is an IMRED calib file"))
+      ;; stack-images returns NIL if all extensions were skipped
+      (when (stack-images fits-list fits-out
+			  :reduction-plan reduction-plan
+			  :template-fits template-fits
+			  :stack-type stack-type
+			  :count-header "IMRED.NFRINGE"
+			  :if-exists if-exists
+			  :final-array-function #'final-array-function
+			  :imsec-filter-function #'imsec-filter-function)
+	(cf:write-fits-header fits-out "IMRED.CAL" T
+			      :comment "This is an IMRED calib file")))))
 
 
 

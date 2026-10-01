@@ -1,14 +1,13 @@
 (asdf:defsystem astorb
-    ;;  
-  :depends-on (numio file-io astro-time slalib-ephem
-		     readable-arrays gzip-stream
-		     string-utils drakma jk-datadir pconfig)
-    ;;
-    :components
+  :description "Asteroid orbit database using memory-mapped storage"
+  :depends-on (mmapped-table orbital-elements
+               numio file-io astro-time slalib-ephem
+               gzip-stream string-utils
+               drakma jk-datadir pconfig)
+  :components
   ((:file "astorb-package" :depends-on ())
-   (:file "astorb" :depends-on ("astorb-retrieve"))
-   (:file "astorb-data" :depends-on ("astorb" "astorb-retrieve"))
+   (:file "astorb" :depends-on ("astorb-package"))
    (:file "astorb-retrieve" :depends-on ("astorb-package"))
-   (:file "proximity" :depends-on (astorb))))
-
-
+   (:file "astorb-data" :depends-on ("astorb" "astorb-retrieve"))
+   (:file "astorb-query" :depends-on ("astorb" "astorb-data"))
+   (:file "proximity" :depends-on ("astorb-query"))))

@@ -22,30 +22,49 @@
 			      (clipping-function nil)
 			      (count-header nil)
 			      (extdesc nil)
-			      (output-null-val 0.0) ;; 
+			      (output-null-val 0.0) ;;
 			      (imsec-filter-function nil)
 			      (final-array-function nil)
 			      (nstack-min 1))
+  "Stack one extension. Returns T on success, :SKIPPED if filter returned NIL."
 
   (declare (type (member :median :mean) stack-type)
 	   (type (or null function) clipping-function))
 
   (let* ((imsec-list-filtered
 	   (funcall (or imsec-filter-function #'%null-stacker-filter-function)
-		    imsec-generator extdesc))
-	 (nstack (length imsec-list-filtered)) 
-	 ;; the next line uses OR to get the zeroth image, if none in
-	 ;; the good list, to prevent complete failure - the output
-	 ;; stack will still be bad, because it will be a stack of
-	 ;; zero images.  But it will exist.
-	 (imsec0 (or (or (first imsec-list-filtered)
-		     (funcall imsec-generator 0))))
-	 (dims (array-dimensions
-		(cf:image-section-data imsec0)))
-	 (im-out (imutils:make-image (first dims) (second dims) 
-				     :initial-value output-null-val))
-	 (naxes (vector (array-dimension im-out 1) (array-dimension im-out 0)))
-	 (arrays (mapcar 'cf:image-section-data imsec-list-filtered)))
+		    imsec-generator extdesc)))
+
+    ;; If filter returned NIL, create dummy extension with NaN values
+    (when (null imsec-list-filtered)
+      ;; Get dimensions from template
+      (cf:with-open-fits-file (template-fits ff-template)
+	(cf:move-to-extension ff-template ihdu)
+	(let* ((img-size (cf:fits-file-current-image-size ff-template))
+	       (naxis1 (aref img-size 0))  ; nx
+	       (naxis2 (aref img-size 1))  ; ny
+	       (im-out (imutils:make-image naxis2 naxis1
+					   :initial-value float-utils:*single-float-nan*))
+	       (naxes (vector naxis1 naxis2)))
+	  ;; Write dummy extension
+	  (cf:add-image-to-fits-file ff-out :float naxes :create-data im-out)
+	  (cf:write-fits-header ff-out "BAD_CALIB" t
+				:comment "This calibration extension has no valid inputs")
+	  (cf:write-fits-header ff-out "IMRED.STACK_OK" nil)
+	  (cf:write-fits-header ff-out "IMRED.STACK_BAD" t)
+	  ;; Copy headers from template
+	  (copy-headers ff-template ff-out
+			:exclude '("BZERO" "BSCALE" "NAXIS" "NAXIS1" "NAXIS2" "BITPIX"))))
+      (return-from stack-one-extension :dummy))
+
+    (let* ((nstack (length imsec-list-filtered))
+	   (imsec0 (first imsec-list-filtered))
+	   (dims (array-dimensions
+		  (cf:image-section-data imsec0)))
+	   (im-out (imutils:make-image (first dims) (second dims)
+				       :initial-value output-null-val))
+	   (naxes (vector (array-dimension im-out 1) (array-dimension im-out 0)))
+	   (arrays (mapcar 'cf:image-section-data imsec-list-filtered)))
    
 
     (when arrays
@@ -80,11 +99,12 @@
 		    :exclude '(;;"DATASEC" "BIASSEC" ;; why exclude these?
 			       "BZERO" "BSCALE"
 			       "NAXIS" "NAXIS1" "NAXIS2" "BITPIX")))
-    (when count-header
-      (cf:write-fits-header ff-out count-header (length arrays) :comment "Number in stack"))
-    (cf:write-fits-comment ff-out (format nil "IMRED: ~A stacked ~A out of possible ~A"
-					  stack-type (length arrays)
-					  (funcall imsec-generator nil)))))
+      (when count-header
+	(cf:write-fits-header ff-out count-header (length arrays) :comment "Number in stack"))
+      (cf:write-fits-comment ff-out (format nil "IMRED: ~A stacked ~A out of possible ~A"
+					    stack-type (length arrays)
+					    (funcall imsec-generator nil)))
+      t))) ;; return T on success, close inner let* and outer let*
     
 
 
@@ -171,52 +191,66 @@ Arrays are always single-float."
 		 ;;
 		 ;; use a temporary output file so we don't leave a broken incomplete
 		 ;; file in case of failure
-		 (with-temporary-output-file (fits-out fits-out-tmp :extra-suffix "_TMP") 
-		   (cf:with-new-fits-file  (fits-out-tmp ff-out :overwrite t) 
-		     (loop 
-		       with template = (or template-fits (first fits-list))
-		       with extdesc-list = (build-extdesc-list-for-fits (first fits-list))
-		       for extdesc in extdesc-list
-		       for ihdu = (extdesc-n-ext extdesc)
-		       ;; function to retrieve imsecs
-		       for imsec-generator = (lambda (n)
-					       (cond
-						 ;; N=NIL queries number available
-						 ((not n)
-						  (length ff-list))
-						 ;; if N is too big, return NIL=No_more_avail
-						 ((>= n (length ff-list))
-						  nil)
-						 ;; else return Nth imsec
-						 (t
-						  (read-one-imsec (nth n ff-list) ihdu))))
-		       do 
-			  (cond
-			    ;; just copy any non-image extension from the first image
-			    ((not (extdesc-reduce-p extdesc))
-			     (cf:with-open-fits-file ((first fits-list) ff)
-			       (cf:move-to-extension ff ihdu)
-			       (cfitsio:copy-current-extension ff ff-out)))
-			    (t
-			     ;; bind global variables
-			     (let ((*ff-list* ff-list)
-				   (*imsec-generator* imsec-generator)
-				   (*fits-file-list* fits-list)
-				   (*hdu-num* ihdu))
-			       (stack-one-extension 
-				ff-out imsec-generator
-				template ihdu
-				:output-null-val 
-				(float (reduction-plan-output-null-pixel-value
-					reduction-plan)
-				       1.0)
-				:clipping-function clipping-function
-				:stack-type stack-type
-				:count-header count-header
-				:imsec-filter-function imsec-filter-function
-				:extdesc extdesc
-				:final-array-function final-array-function
-				:nstack-min nstack-min))))))))
+		 (let ((stack-result
+			 (with-temporary-output-file (fits-out fits-out-tmp :extra-suffix "_TMP")
+			   (cf:with-new-fits-file  (fits-out-tmp ff-out :overwrite t)
+			     (let ((results
+				     (loop
+				       with template = (or template-fits (first fits-list))
+				       with extdesc-list = (build-extdesc-list-for-fits (first fits-list))
+				       for extdesc in extdesc-list
+				       for ihdu = (extdesc-n-ext extdesc)
+				       ;; function to retrieve imsecs
+				       for imsec-generator = (lambda (n)
+							       (cond
+								 ;; N=NIL queries number available
+								 ((not n)
+								  (length ff-list))
+								 ;; if N is too big, return NIL=No_more_avail
+								 ((>= n (length ff-list))
+								  nil)
+								 ;; else return Nth imsec
+								 (t
+								  (read-one-imsec (nth n ff-list) ihdu))))
+				       collect
+					  (cond
+					    ;; just copy any non-image extension from the first image
+					    ((not (extdesc-reduce-p extdesc))
+					     (cf:with-open-fits-file ((first fits-list) ff)
+					       (cf:move-to-extension ff ihdu)
+					       (cfitsio:copy-current-extension ff ff-out))
+					     :copied) ;; non-image extensions don't count as success
+					    (t
+					     ;; bind global variables
+					     (let ((*ff-list* ff-list)
+						   (*imsec-generator* imsec-generator)
+						   (*fits-file-list* fits-list)
+						   (*hdu-num* ihdu))
+					       (stack-one-extension
+						ff-out imsec-generator
+						template ihdu
+						:output-null-val
+						(float (reduction-plan-output-null-pixel-value
+							reduction-plan)
+						       1.0)
+						:clipping-function clipping-function
+						:stack-type stack-type
+						:count-header count-header
+						:imsec-filter-function imsec-filter-function
+						:extdesc extdesc
+						:final-array-function final-array-function
+						:nstack-min nstack-min)))))))
+			       ;; Return T if any extension succeeded, :all-dummy otherwise
+			       (if (member t results)
+				   t
+				   :all-dummy))))))
+		   ;; If all extensions were dummy, delete the output file and return NIL
+		   (if (eq stack-result :all-dummy)
+		       (progn
+			 (when (probe-file fits-out)
+			   (delete-file fits-out))
+			 nil)
+		       stack-result)))
 	    ;; unwind protected form
 	    (loop 
 	       for ff in ff-list

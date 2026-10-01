@@ -1,50 +1,59 @@
-
-
 (defpackage astorb
   (:use #:cl)
   (:export
-   #:*astorb-info-output-stream* ;; set to NIL for quiet
+   ;; Config variables
+   #:*astorb-info-output-stream*
    #:*the-astorb*
-   #:*read-astorb-on-load*  ;; default true
-   #:*download-astorb-automatically* ;; default t (if not present)
-   #:*astorb-quiet* 
-   
+   #:*read-astorb-on-load*
+   #:*download-astorb-automatically*
+   #:*astorb-quiet*
+
+   ;; Main accessor
    #:get-the-astorb
-   ;;
-   #:astorb #:astorb-p #:astorb-n #:astorb-epoch-of-elements
-   #:astorb-astnum #:astorb-name #:astorb-hmag #:astorb-g #:astorb-iras-km
-   #:astorb-class 
+
+   ;; Wrapper struct and accessors
+   #:astorb #:astorb-p #:make-astorb
+   #:astorb-table #:astorb-file-path #:astorb-epoch-of-elements
+
+   ;; Row count
+   #:astorb-n
+
+   ;; Field accessors (using table-peek)
+   #:astorb-astnum #:astorb-name #:astorb-sname
+   #:astorb-hmag #:astorb-g #:astorb-iras-km
+   #:astorb-iras-class
    #:astorb-code1 #:astorb-code2 #:astorb-code3
    #:astorb-code4 #:astorb-code5 #:astorb-code6
-   #:astorb-orbarc #:astorb-nobs #:astorb-epoch-osc #:astorb-mean-anomaly
-   #:astorb-arg-peri #:astorb-orbinc #:astorb-ecc #:astorb-a #:astorb-orbit-date
-   ;;
-   #:get-comet-elem-for-nth-asteroid 
-   #:search-for-asteroids-by-name 
+   #:astorb-orbarc #:astorb-nobs #:astorb-epoch-osc
+   #:astorb-mean-anomaly #:astorb-arg-peri #:astorb-anode
+   #:astorb-orbinc #:astorb-ecc #:astorb-a #:astorb-orbit-date
+
+   ;; Query functions
+   #:get-comet-elem-for-nth-asteroid
+   #:get-universal-elem-for-nth-asteroid
+   #:search-for-asteroids-by-name
    #:find-numbered-asteroid
-   ;;
-   ;; astorb-retrieve.lisp
+
+   ;; Data management
    #:retrieve-newest-astorb-file
-   ;;
-   ;; proximity.lisp - find nearest asteroids on sky.  expensive startup
-   #:prox #:make-prox #:prox-p
-   #:find-nearest-asteroids-in-prox
-   ;;
-   ;; astorb-data.lisp
    #:update-to-latest-astorb
-   ))
+   #:convert-astorb-text-to-mmap
+
+   ;; Proximity search
+   #:prox #:make-prox #:prox-p
+   #:prox-mjd #:prox-observatory
+   #:find-nearest-asteroids-in-prox))
 
 
-;; define important variables
 (in-package astorb)
 
 
-(defvar *the-astorb* nil) ;; the global astorb structure
-
+(defvar *the-astorb* nil
+  "The global astorb structure (wrapper around memory-mapped table).")
 
 (defparameter *read-astorb-on-load*
   (not (pconfig:get-config "astorb:dont-read-data-on-load"))
-  "If true, read (and possibly compile) astorb database automatically when loading package.")
+  "If true, read (and possibly convert) astorb database automatically when loading package.")
 
 (defparameter *download-astorb-automatically*
   (not (pconfig:get-config "astorb:dont-auto-download-astorb"))
@@ -52,17 +61,18 @@
 
 (defparameter *astorb-quiet*
   (pconfig:get-config "astorb:quiet")
-  "Load and compile astorb database without verbose output")
+  "Load astorb database without verbose output.")
 
 (defparameter *astorb-data-dir*
   (namestring (jk-datadir:get-datadir-for-system "astorb")))
 
-
-(defparameter  *astorb-info-output-stream*
+(defparameter *astorb-info-output-stream*
   (if *astorb-quiet*
       NIL
       *standard-output*))
 
+(defvar *astorb-lock* (bordeaux-threads:make-recursive-lock "astorb-lock"))
 
-
-
+(defmacro with-astorb-lock (&body body)
+  `(bordeaux-threads:with-recursive-lock-held (*astorb-lock*)
+     ,@body))

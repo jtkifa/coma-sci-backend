@@ -22,6 +22,8 @@
   (total-mag nil)     ;; comets
   (nucleus-mag nil)   ;; comets
   (apparent-mag nil)  ;; asteroids
+  (airmass nil)
+  (airmass-extinction nil) 
   )
 
 (defun %mjd-to-jpl-ut (mjd)
@@ -55,7 +57,16 @@
 	 ;; hash of keyword (eg :mjd) to field number
 	 (header-hash (make-hash-table :test 'eql))
 	 (data-block (subseq block (+ 6 (search "$$SOE" block))))
-	 (csv (with-input-from-string (s data-block)
+	 ;; clear blank lines from data-block
+	 (clean-data-block
+	   (with-output-to-string (sout)
+	     (with-input-from-string (sin data-block)
+	       (loop for line = (read-line sin nil nil)
+		     until (not line)
+		     when (and (> (length line) 100)
+			       (not (search "Cut-off" line)))
+		       do (write-line line sout)))))
+	 (csv (with-input-from-string (s clean-data-block)
 		(fare-csv:read-csv-stream s))))
     ;; fill the header-hash with a map from KEY to column number 
     (loop for header in header-list
@@ -74,6 +85,8 @@
 			   ((equalp header "d(DEC)/dt")  :ddec/dt)
 			   ((equalp header "RA_3sigma")  :ra-3sigma-err)
 			   ((equalp header "DEC_3sigma")  :dec-3sigma-err)
+			   ((equalp header "a-mass") :airmass)
+			   ((equalp header "mag_ex") :airmass-extinction)
 			   ((equalp header "T-mag")  :total-mag)
 			   ((equalp header "N-mag")  :nucleus-mag)
 			   ((equalp header "APmag")  :apparent-mag)
@@ -124,7 +137,10 @@
        :drhelio/dt (mapitflt (getcol :drhelio/dt)  '%parse-float-or-nil)
        :delta (mapitflt (getcol :delta) '%parse-float-or-nil)
        :ddelta/dt (mapitflt (getcol :ddelta/dt) '%parse-float-or-nil)
-       :phase-angle (mapitflt (getcol :phase-angle) '%parse-float-or-nil))
+       :phase-angle (mapitflt (getcol :phase-angle) '%parse-float-or-nil)
+       :airmass (mapitflt (getcol :airmass) '%parse-float-or-nil)
+       :airmass-extinction (mapitflt (getcol :airmass-extinction) '%parse-float-or-nil)
+       )
 
       )))
 
@@ -201,6 +217,10 @@
 (defparameter *default-location*    "@399")
 (defparameter *default-observatory* "500") ;; geocenter
 
+;; see https://ssd.jpl.nasa.gov/horizons/manual.html#output
+(defparameter *default-jpl-ephem-quantities*
+ '(1 3 8 9 19 20 23 24 36)) 
+
 
 ;; turn JPL quantites (1 2 3) into "'1,2,3'"
 (defun %jpl-quantities-to-string (q-list)
@@ -223,8 +243,10 @@
 		   (use-file-locking t)
 		   (file-locking-timeout 60)
 		   (ntries 1)
+		   (airmass-limit nil)
+		   (skip-daylight nil)
 		   (return-raw-hash-table nil)
-		   (quantities nil))
+		   (quantities *default-jpl-ephem-quantities*))
 
 	       
   "Get a JPL horizons EPHEMERIS object.  
@@ -275,14 +297,19 @@ not specified, use the ones to build default JPL-EPHEM.
 		 *jpl-horizons-orbit-form-page*
 		 :connection-timeout 60
 		 :method :post
+		 ;; see https://ssd-api.jpl.nasa.gov/doc/horizons.html
 		 :parameters
 		 `(;;("batch" . "1")
-		   ("format" . "text")
+		   ("format" . "text") ;; json gets you nothing because it's just
+		                       ;; a block response in a JSON struct LoL
 		   ("COMMAND" . ,(format nil "'~A'" (fix-jpl-object-name object-name)))
 		   ("CENTER" . ,eph-center)
 		   ("MAKE_EPHEM" . "YES")
 		   ("TABLE_TYPE" . "OBSERVER")
-		       
+		   ("AIRMASS" . ,(if airmass-limit 
+				     (format nil "~,2F" airmass-limit)
+				     "38")) ;; 38='no limit'
+		   ("SKIP_DAYLT" . ,(if skip-daylight "YES" "NO"))
 		   ("START_TIME" . ,(%mjd-to-jpl-ut mjd-start))
 		   ("STOP_TIME" .  ,(%mjd-to-jpl-ut mjd-end))
 		   ("STEP_SIZE" . ,(format nil "'~A'" dt)) ;; like "1 d"
@@ -294,14 +321,12 @@ not specified, use the ones to build default JPL-EPHEM.
 		   ("APPARENT" . "AIRLESS") ;; NOT RELEV?
 		   ("SOLAR_ELONG" . "'0,180'")
 		   ("SUPPRESS_RANGE_RATE" . "NO")
-		   ("SKIP_DAYLT" . "NO")
 		   ("EXTRA_PREC" . "NO")
 		   ("R_T_S_ONLY" . "NO")
 		   ("REF_SYSTEM" . "J2000")
 		   ("CSV_FORMAT" . "YES")
 		   ("OBJ_DATA"   . "NO")
-		   ("QUANTITIES" . ,(%jpl-quantities-to-string
-				      (or  quantities '(1 3 9 19 20 23 24 36))))
+		   ("QUANTITIES" . ,(%jpl-quantities-to-string quantities))
 		   ))))
 
 	   (cond

@@ -273,6 +273,8 @@
    #:histogram-equalize-image
    ;;
    ;; imfill.lisp
+   #:map-pixels-by-region
+   #:imfill-pixels-by-region
    #:imfill-corner
    #:imfill-rectangle
    #:imfill-above/below-line

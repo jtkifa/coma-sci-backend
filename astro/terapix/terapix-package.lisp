@@ -12,7 +12,7 @@
    ;; ez-astrometry.lisp
    #:do-linear-astrometry
    #:do-nonlinear-astrometry 
-   #:restore-backup-astrometry-header
+   #:restore-backup-wcs-headers
    
    ;; ez-astrometry-scan.lisp
    #:scan-ez-astrometry

@@ -1760,12 +1760,13 @@ SHADOW is T if a shadow version of text is desired under the text, for example t
 	(%line-width (or line-width (get-line-width p))))
     (when center
       (multiple-value-bind (xvec yvec)
-	  (text-bounding-box p text :font font :angle angle)
+	  (text-bounding-box p text :font font :angle angle :x0 0 :y0 0
+			     :character-height character-height)
 	;; decrement position x,y by mean position of bounding box
 	(loop for xc across xvec and yc across yvec
 	      do  
-		 (decf xx (* 0.25 xc))
-		 (decf yy (* 0.25 yc)))))
+		 (incf xx (* -0.25 xc)) ;; 0.25 for 4 corners
+		 (incf yy (* -0.25 yc)))))
     ;;
     ;; if shadow text is enabled, write text under the real text but
     ;; with a thicker line width

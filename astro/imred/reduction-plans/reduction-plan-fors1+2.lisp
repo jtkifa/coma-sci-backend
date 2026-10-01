@@ -50,7 +50,7 @@
    (invalid-pixel-function
     :initform (lambda (x) (declare (type single-float x)
 				   (optimize speed))
-		(or (= x 65535.0)
+		(or (>= x 65535.0)
 		    (= x 0.0))))
    ;;
    (output-fits-patch-function :initform nil)))
