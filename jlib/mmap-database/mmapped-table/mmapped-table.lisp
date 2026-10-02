@@ -326,7 +326,13 @@ row index.
       (t (error "Invalid Type ID: ~A" id)))))
 
 ;; --- Constants ---
-(defconstant +map-failed+ (cffi:make-pointer #xFFFFFFFFFFFFFFFF))
+;; Use eval-when + boundp guard to avoid SBCL redefinition error on reload:
+;; cffi pointers are not EQL across loads even with same address.
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defconstant +map-failed+
+    (if (boundp '+map-failed+)
+        (symbol-value '+map-failed+)
+        (cffi:make-pointer #xFFFFFFFFFFFFFFFF))))
 
 ;; ====================================================================================================
 ;;               CLOS METACLASS CONTROL PLANE (No Instances, Pure Schema Blueprint)
