@@ -668,7 +668,7 @@
 ;; DRAGONS puts data into extension 2
 (defmethod get-mjd-start-for-instrument ((inst %gmos-dragons-mosaic-file) fits-file)
   (cf:maybe-with-open-fits-file (fits-file ff)
-    (or (%gethead-or-error ff "MJD-OBS" :extension 1)
+    (or (cf:read-fits-header ff "MJD-OBS" :extension 1)
 	(and (> (cf:fits-file-num-hdus ff) 1)
 	     (%gethead-or-error ff "MJD-OBS" :extension 2)))))
 
