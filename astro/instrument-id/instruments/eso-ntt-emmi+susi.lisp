@@ -331,7 +331,7 @@ is not 0 or 90.
 	    (ybinning  (or (%read-fits-header-1or2 ff "HIERARCH ESO DET WIN1 BINY")
 			   ;; following is for SUSI
 			   (%safe-round (%read-fits-header-1or2 ff "HIERARCH ESO DET FRAM CDELT2"))))
-	    (is-reduced (cf:read-fits-header ff "IMRED.CCDPROC"))
+	    (is-reduced (cf:read-fits-header ff "IMRED.CCDPROC" :extension 1))
 	    ;; number of image extensions
 	    (nimexts  (if (= (cf:fits-file-num-hdus ff) 1)
 			  1
@@ -477,6 +477,12 @@ is not 0 or 90.
     (call-next-method))
     :test 'equalp))
 
+
+(defmethod is-reduced-for-instrument ((inst %eso-ntt-emmi+susi) fits-file)
+  (cond ((typep inst '%emmi-susi-reduced)
+	 :imred-ccdproc)
+	(t ;; leave open the possibility that this is reduced by another method
+	 (call-next-method))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

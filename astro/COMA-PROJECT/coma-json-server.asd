@@ -1,26 +1,28 @@
 
-
+;; activate new fits-stamp-cairo
 
 ;; quiet astorb loading message in case we need astorb
 (defparameter cl-user::astorb-quiet t) 
  
 (asdf:defsystem coma-json-server
   :depends-on (alexandria imutils instrument-id imred slalib-ephem
-		     small-body-name observatories fits-stamp jk-parse-float
-		     mpc jpl-horizons units phot-calib terapix orbphot
-		     small-body-identify isochrones-isodynes
-		     magnitude-of-sun
-		     simple-comet-activity-detector
-		     id-ss-object-at-pos
-		     shift-and-add a-f-rho asteroids
-		     jtk-yason ;; our slightly modded yason
-		     orbital-mech
-		     hunchentoot ;; web server
-		     drakma      ;; web client for testing
-		     cl-ppcre    ;; regexp
-		     jk-datadir  ;; find package data directory
-		     swank       ;; to allow REPL connection
-		     )
+			  small-body-name observatories
+			  fits-stamp-cairo
+			  jk-parse-float
+			  mpc jpl-horizons units phot-calib terapix orbphot
+			  small-body-identify isochrones-isodynes
+			  magnitude-of-sun
+			  simple-comet-activity-detector
+			  id-ss-object-at-pos
+			  shift-and-add a-f-rho asteroids
+			  jtk-yason ;; our slightly modded yason
+			  orbital-mech
+			  hunchentoot ;; web server
+			  drakma      ;; web client for testing
+			  cl-ppcre    ;; regexp
+			  jk-datadir  ;; find package data directory
+			  swank       ;; to allow REPL connection
+			  )
   :components
   ((:module "coma-json-server"
     :components

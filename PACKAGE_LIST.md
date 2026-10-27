@@ -13,7 +13,7 @@ Complete inventory of all packages in the coma-sci-backend repository.
 2. instrument-id - Camera/instrument identification
 3. imred - Image reduction pipeline
 4. cfitsio - FITS file I/O bindings
-5. fits-stamp - FITS image stamp creation
+5. fits-stamp-cairo - FITS image stamp creation
 
 ### Astrometry & WCS
 6. wcs - World Coordinate System support
@@ -110,7 +110,7 @@ Complete inventory of all packages in the coma-sci-backend repository.
 29. units - Physical units handling
 
 ## Plotting
-1. cl-pgplot - Common Lisp bindings for PGPLOT graphics library
+1. cl-cairo2 - 2d graphics package exporting PNG, PDF, PS, TIFF, SVG, JPEG, for stamps using Lisp package 
 
 ## External Packages
 1. lparallel - Parallel processing library
@@ -134,6 +134,8 @@ Core dependencies loaded during Docker build:
 12. **md5** - MD5 hashing
 13. **salza2** - Compression library
 14. **lparallel** - Parallel processing
+15. **cl-cairo2** - cairo2 graphics interface for stamps
+
 
 ## Native Libraries (C/C++/Fortran)
 
@@ -147,8 +149,8 @@ Installed from Ubuntu packages:
 5. **libxpa.so** / **libxpa1** - XPA inter-process communication
 6. **libwcs.so** / **libwcs8** - WCS (World Coordinate System)
 7. **libfftw3.so** - Fast Fourier Transform library
-8. **pgplot5** - PGPLOT graphics library
 9. **source-extractor** - SExtractor (TERAPIX)
+10. **cairo** - cairo 2D graphis library for making stamps
 10. **scamp** - SCAMP astrometric calibration (TERAPIX)
 11. **swarp** - SWarp image resampling (TERAPIX)
 

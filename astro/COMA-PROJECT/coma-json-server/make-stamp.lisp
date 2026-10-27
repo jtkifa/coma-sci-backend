@@ -9,7 +9,7 @@
                  "EXTENSION":1, // if extension is not the default one
 
                  "STAMP-FILE":"/stamp_dir/sample_stamp.pdf",
-                 "STAMP-TYPE":"PDF", //  PDF, PS, or GIF 
+                 "STAMP-TYPE":"PDF", //  PDF, PS,  PNG, JPEG, TIFF or SVG
                 
                  // the method used to determine the stamp center
                  "STAMP-CENTER"=[1000,1100], // [xpix,ypix] or [ra,dec] or "OBJECT"
@@ -56,9 +56,7 @@
 
 (in-package coma-json-server)
 
-;; lock on stamp making - don't want to open more than maximum
-;; number of pgplot devices. Pgplot is not the best  package for this.
-(defparameter *make-stamp-lock* (bt:make-lock "make-stamp-lock"))
+
 
 (def-json-command make-stamp (json-req)
   (with-json-command-setup (json-req)
@@ -172,7 +170,11 @@
       (setf stamp-type
 	    (cond ((equalp stamp-type "PDF") :pdf)
 		  ((equalp stamp-type "PS") :ps)
-		  ((equalp stamp-type "GIF") :gif)
+		  ;;((equalp stamp-type "GIF") :gif)
+		  ((equalp stamp-type "JPEG") :jpeg)
+		  ((equalp stamp-type "JPG") :jpeg)
+		  ((equalp stamp-type "SVG") :svg)
+		  ((equalp stamp-type "TIFF") :tiff)
 		  (t (return-with-error
 		      "INVALID-STAMP-TYPE"
 		      (format nil "Unknown stamp type ~A"
@@ -271,14 +273,14 @@
       ;; at this point, the correct center x0/pix y0/pix size/pix should be set
       ;;
       (when compass-rose
-	(push (make-instance 'fits-stamp:compass-rose) marker-list))
+	(push (make-instance 'fits-stamp-cairo:compass-rose) marker-list))
       ;;
       (when scale-bar
-	(push (make-instance 'fits-stamp:pixel-scale-marker) marker-list))
+	(push (make-instance 'fits-stamp-cairo:pixel-scale-marker) marker-list))
       ;;
       (when orbit-directions
-	(push (fits-stamp:fill-orbit-direction-axes-using-comet-elem
-	       (make-instance 'fits-stamp:orbit-direction-axes)
+	(push (fits-stamp-cairo:fill-orbit-direction-axes-using-comet-elem
+	       (make-instance 'fits-stamp-cairo:orbit-direction-axes)
 	       orbit mjd :observatory observatory)
 	      marker-list))
       
@@ -310,7 +312,7 @@
 	(push
 	 (setf crosshairs
 	       (make-instance
-		'fits-stamp:crosshairs
+		'fits-stamp-cairo:crosshairs
 		:coordinate-units
 		(cond ((equalp crosshair-location-unit "arcsec") :arcsec)
 		      ((equalp crosshair-location-unit "pixel") :pixel)
@@ -329,15 +331,14 @@
       
       (multiple-value-bind (success err)
 	  (ignore-errors
-	   (bt:with-lock-held (*make-stamp-lock*) ;; only making one stamp at once
-	     (fits-stamp:make-stamp fits-file stamp-type
-				    (round x0/pix) (round y0/pix) (round  size/pix)
-				    :extension extension
-				    :output-file stamp-file
-				    :toplabel toplabel
-				    :markers marker-list)))
+	   (fits-stamp-cairo:make-stamp fits-file stamp-type
+					(round x0/pix) (round y0/pix) (round  size/pix)
+					:extension extension
+					:output-file stamp-file
+					:toplabel toplabel
+					:markers marker-list))
 	(when (not success)
-	  (return-with-error "FAILED-IN-FITS-STAMP-MAKE-STAMP"
+	  (return-with-error "FAILED-IN-FITS-STAMP-CAIRO-MAKE-STAMP"
 			     (format nil "INTERNAL ERROR in stamp generation: ~A" err))))
       
       (when (not (probe-file stamp-file))
@@ -370,10 +371,10 @@
       (bt-ignore-errors ;; shouldn't fail
        (when (and crosshairs wcs)
 	 (multiple-value-bind (cxpix cypix)
-	     (fits-stamp::convert-xy-to-pixels
-	      (fits-stamp::fsm-x crosshairs)
-	      (fits-stamp::fsm-y crosshairs)
-	      (fits-stamp::coordinate-units crosshairs)
+	     (fits-stamp-cairo::convert-xy-to-pixels
+	      (fits-stamp-cairo::fsm-x crosshairs)
+	      (fits-stamp-cairo::fsm-y crosshairs)
+	      (fits-stamp-cairo::coordinate-units crosshairs)
 	      x0/pix y0/pix size/pix wcs)
 	   (multiple-value-bind (ra dec)
 	       (wcs:wcs-convert-pix-xy-to-ra-dec wcs (* 1d0 cxpix) (* 1d0 cypix))

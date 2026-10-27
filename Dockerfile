@@ -44,7 +44,7 @@ ENV LISP_LISTENER_PORT=5055
 RUN apt-get update && apt-get install -y --no-install-recommends \
   wget build-essential curl git ca-certificates \
   zlib1g-dev libcurl4-openssl-dev libssl-dev rsync
-RUN apt-get install -y gfortran libgfortran5 pgplot5 libfftw3-double3 libfftw3-single3 libfftw3-dev
+RUN apt-get install -y gfortran libgfortran5  libfftw3-double3 libfftw3-single3 libfftw3-dev libcairo2-dev
 # Create symlinks for CFFI to find FFTW3 libraries
 RUN (ln -s /usr/lib/aarch64-linux-gnu/libfftw3.so /usr/lib/libfftw3.so || \
   ln -s /usr/lib/x86_64-linux-gnu/libfftw3.so /usr/lib/libfftw3.so || true) && \

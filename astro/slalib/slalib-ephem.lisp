@@ -473,6 +473,69 @@ observatory latitude."
    :correct-mjd-to-tt correct-mjd-to-tt))
 
 
+(defun compute-radecr-from-universal-elem-with-rates
+    (univ-elem mjd oelon olat
+     &key
+       (altitude 0d0)
+       (units :au)
+       (perturb t)
+       (correct-mjd-to-tt t)
+       (dt/mjd 0.001d0)) ;; the time span in days over which to compute rate
+  "Compute apparent RA,DEC,R from UNIV-ELEM at time MJD.  OELON
+and OLAT are observer's latitude and longitude (+east) in
+degrees. Units are in AU and AU/day. Keyword UNITS is
+either :AU (default) or :KM for R.
+Also compute rates in arcsec/hr.
+Return
+ (VALUES RA DEC R d(RA*cos(DEC))/dt  dDEC/dt)
+The rates were verified using JPL HORIZONS, but not extensively.
+"
+  (let (ra1 dec1 ra2 dec2 r1 r2 dracosdec/dt ddec/dt)
+
+    (let ((univ-elem-use
+	    (if perturb
+		(perturb-universal-elem mjd univ-elem)
+		univ-elem)))
+
+      (multiple-value-setq (ra1 dec1 r1)
+	(compute-radecr-from-universal-elem
+	 univ-elem-use mjd oelon olat
+	 :altitude altitude :units units
+	 :perturb nil :correct-mjd-to-tt correct-mjd-to-tt))
+      (multiple-value-setq (ra2 dec2 r2)
+	(compute-radecr-from-universal-elem
+	 univ-elem-use (+ mjd dt/mjd) oelon olat
+	 :altitude altitude :units units
+	 :perturb nil :correct-mjd-to-tt correct-mjd-to-tt))
+      (multiple-value-setq (dracosdec/dt ddec/dt)
+	(%compute-rates-for-ra-dec-pair ra1 dec1 ra2 dec2 dt/mjd))
+      (values ra1 dec1 r1 dracosdec/dt  ddec/dt))))
+
+
+(defun compute-radecr-from-universal-elem-with-rates-for-observatory
+    (univ-elem mjd observatory
+     &key
+       (units :au)
+       (perturb t)
+       (correct-mjd-to-tt t)
+       (dt/mjd 0.001d0)) ;; the time span in days over which to compute rate
+  "Compute apparent RA,DEC,R from UNIV-ELEM at time MJD.  Keyword
+UNITS is either :AU (default) or :KM for R.  Also compute rates in
+arcsec/hr.  Return
+ (VALUES RA DEC R d(RA*cos(DEC))/dt  dDEC/dt)
+The rates were verified using JPL HORIZONS, but not extensively.
+"
+  (setf observatory (get-observatory observatory :error-on-fail t))
+  ;;
+  (compute-radecr-from-universal-elem-with-rates
+   univ-elem mjd
+   (- (observatory-wlongitude observatory)) ;; convert WEST to EAST longitude
+   (observatory-latitude observatory)
+   :altitude (observatory-altitude observatory)
+   :units units
+   :perturb perturb
+   :correct-mjd-to-tt correct-mjd-to-tt
+   :dt/mjd dt/mjd))
 
 
 (defun compute-radecr-from-comet-elem-for-observatory/plante

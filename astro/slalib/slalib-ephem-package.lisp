@@ -60,6 +60,8 @@
    ;; altitude (and thus geocenter)
    #:compute-radecr-from-universal-elem
    #:compute-radecr-from-universal-elem-for-observatory
+   #:compute-radecr-from-universal-elem-with-rates
+   #:compute-radecr-from-universal-elem-with-rates-for-observatory
    ;;
    #:compute-radecr-from-comet-elem
    #:compute-radecr-from-comet-elem/plante 

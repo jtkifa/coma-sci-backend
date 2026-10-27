@@ -59,7 +59,6 @@ coma-sci-backend/
 │   └── ...                  # API endpoint implementations
 ├── astro/                   # Astronomy-specific packages (42 packages)
 ├── jlib/                    # General utility libraries (29 packages)
-├── cl-pgplot/               # PGPLOT plotting bindings
 ├── external-packages/       # Third-party packages
 └── www-utils/               # Web utilities (HTML parsing)
 ```
@@ -131,12 +130,13 @@ Instrument-specific:
 Mathematical, image processing, data structures, parsing, and system utilities.
 
 ### Plotting
-- **cl-pgplot**: Common Lisp bindings for PGPLOT graphics library
+*   **~~cl-pgplot~~** no longer needed - superseded by external cl-cairo2 for plotting stamps
 
 ### External Packages
 - **lparallel**: Parallel processing library
 - **re** (massung-regexp): Regular expression library
 - **cl-html-parse-walker**: HTML parsing utilities
+- **cl-cairo2**: Common Lisp bindings for cairo graphics library, usedfor stamps
 
 ## Dependencies
 

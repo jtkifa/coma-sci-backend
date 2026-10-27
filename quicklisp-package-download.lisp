@@ -15,7 +15,9 @@
     :trivial-gray-streams
     :flexi-streams
     :lparallel
-    :closer-mop))
+    :closer-mop
+    :cl-cairo2
+    ))
 
 (load "quicklisp.lisp")
 

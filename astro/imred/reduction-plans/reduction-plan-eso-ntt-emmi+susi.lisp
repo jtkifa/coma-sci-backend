@@ -183,7 +183,8 @@
 ;; Converts file to float format to support NaN storage
 (defun ntt-emmi-rild-tek2048-input-patch-function (fits-file reduction-plan)
   (declare (ignorable reduction-plan))
-  (let ((temp-file (format nil "~A.tmp-float-convert" fits-file)))
+  (let* ((fits-file (namestring (truename fits-file)))  ;; ensure clean absolute path
+         (temp-file (format nil "~A.tmp-float-convert" fits-file)))
     (cf:with-open-fits-file (fits-file ffin :mode :input)
       ;; Find the image extension
       (let ((img-ext (if (and (eq (cf:fits-file-current-hdu-type ffin) :image)
@@ -369,7 +370,8 @@
 (defun %emmi-rild-fa2048-nan-all-bad-regions (fits-file)
   "Mask bad/vignetted regions with NaN on both extensions of FA2048 FITS file.
    Converts image extensions to float format to support NaN storage."
-  (let ((temp-file (format nil "~A.tmp-float-convert" fits-file)))
+  (let* ((fits-file (namestring (truename fits-file)))  ;; ensure clean absolute path
+         (temp-file (format nil "~A.tmp-float-convert" fits-file)))
     ;; Create new file with float extensions
     (cf:with-open-fits-file (fits-file ffin :mode :input)
       ;; Read primary HDU headers

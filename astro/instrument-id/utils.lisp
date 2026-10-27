@@ -92,16 +92,19 @@ returning NIL on failure."
 		     :iraf)))
 	     ;;
 	     (reduced-with-imred? () ;; our imred does header-by-header marking
-	       (loop
-		 with imtype = (get-imtype)
-		 for iext from 1 to  (cf:fits-file-num-hdus ff)
-		 do (cf:move-to-extension ff iext)
-		    (cond ((and (eq imtype :flat)
-				(cf:read-fits-header ff "IMRED.DEBIAS"))
-			   (return :imred-ccdproc))
-			  ((and (eq imtype :object)
-				(cf:read-fits-header ff "IMRED.FLATTEN"))
-			   (return :imred-ccdproc)))))
+	       (cond ((cf:read-fits-header ff "IMRED.CAL") ;; it's an IMRED calibration field, which counts as reduced
+		      :imred-ccdproc)
+		     (t
+		      (loop
+			with imtype = (get-imtype)
+			for iext from 1 to  (cf:fits-file-num-hdus ff)
+			do (cf:move-to-extension ff iext)
+			   (cond ((and (eq imtype :flat)
+				       (cf:read-fits-header ff "IMRED.DEBIAS"))
+				  (return :imred-ccdproc))
+				 ((and (eq imtype :object)
+				       (cf:read-fits-header ff "IMRED.FLATTEN"))
+				  (return :imred-ccdproc)))))))
 	     ;;
 	     (reduced-with-elixir? ()
 	       (let ((imred-dt (cf:read-fits-header ff "IMRED_DT" :extension 1)))
