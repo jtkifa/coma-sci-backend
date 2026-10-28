@@ -20,6 +20,7 @@ Usage is similar to fits-stamp but uses Cairo contexts:
    ;; main entry points
    #:make-stamp
    #:make-pdf-stamp
+   #:make-svgz-stamp
    ;; context class (for advanced use)
    #:stamp-context
    ;; markers

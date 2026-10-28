@@ -51,6 +51,7 @@ Cairo substitutions for PGPLOT
    ;; Output info
    (output-type :initarg :output-type :accessor ctx-output-type)
    (output-file :initarg :output-file :accessor ctx-output-file)
+   (temp-file :initform nil :accessor ctx-temp-file)  ; for SVGZ: temp SVG file
    ;; Device dimensions (pixels)
    (dev-width  :initform 800 :initarg :dev-width  :accessor ctx-dev-width)
    (dev-height :initform 800 :initarg :dev-height :accessor ctx-dev-height)
@@ -74,6 +75,7 @@ Cairo substitutions for PGPLOT
   "Scale a device-coordinate value by the context's scale factor"
   (* value (ctx-scale-factor ctx)))
 
+
 (defun open-context (output-type &key filename (width 800) (height 800))
   "Create and open a new stamp context for rendering"
   (let ((ctx (make-instance 'stamp-context
@@ -81,13 +83,22 @@ Cairo substitutions for PGPLOT
                             :output-file filename
                             :dev-width width
                             :dev-height height)))
+    ;; For SVGZ, create a temp SVG file that will be gzipped on close
+    (when (eq output-type :svgz)
+      (setf (ctx-temp-file ctx) (format nil "~A.svg.tmp" filename)))
     (setf (ctx-surface ctx)
           (ecase output-type
             (:pdf  (cl-cairo2:create-pdf-surface filename
                                                   (coerce width 'double-float)
                                                   (coerce height 'double-float)))
+	    (:ps   (cl-cairo2:create-ps-surface filename
+                                                 (coerce width 'double-float)
+                                                 (coerce height 'double-float)))
             (:png  (cl-cairo2:create-image-surface :argb32 width height))
             (:svg  (cl-cairo2:create-svg-surface filename
+                                                  (coerce width 'double-float)
+                                                  (coerce height 'double-float)))
+            (:svgz (cl-cairo2:create-svg-surface (ctx-temp-file ctx)
                                                   (coerce width 'double-float)
                                                   (coerce height 'double-float)))))
     (setf (ctx-cr ctx) (cl-cairo2:create-context (ctx-surface ctx)))
@@ -105,7 +116,27 @@ Cairo substitutions for PGPLOT
     (cl-cairo2:destroy (ctx-cr ctx))
     (cl-cairo2:destroy (ctx-surface ctx))
     (setf (ctx-cr ctx) nil)
-    (setf (ctx-surface ctx) nil)))
+    (setf (ctx-surface ctx) nil)
+    ;; For SVGZ: gzip the temp SVG file to the final output
+    (when (eq (ctx-output-type ctx) :svgz)
+      (unwind-protect
+           (gzip-file (ctx-temp-file ctx) (ctx-output-file ctx))
+        (when (probe-file (ctx-temp-file ctx))
+          (delete-file (ctx-temp-file ctx)))))))
+
+(defun gzip-file (input-file output-file &key (level 9) (buffer-size 8192))
+  "Gzip INPUT-FILE to OUTPUT-FILE using hu.dwim.zlib with specified compression LEVEL (0-9)."
+  (with-open-file (in input-file :element-type '(unsigned-byte 8))
+    (with-open-file (out output-file :element-type '(unsigned-byte 8)
+                                     :direction :output :if-exists :supersede)
+      (hu.dwim.zlib:deflate
+       (lambda (buffer start end)
+         (read-sequence buffer in :start start :end end))
+       (lambda (buffer start end)
+         (write-sequence buffer out :start start :end end))
+       :container :gzip
+       :level level
+       :buffer-size buffer-size))))
 
 (defmacro with-stamp-context ((ctx output-type &key filename (width 800) (height 800)) &body body)
   "Execute body with a stamp context, ensuring cleanup"
@@ -177,6 +208,16 @@ Cairo substitutions for PGPLOT
 ;;;; ============================================================
 ;;;; Colormap and Image Rendering
 ;;;; ============================================================
+#+nil
+(defun make-grayscale-colormap (&key (imin 0) (imax 255) (reverse nil))
+  "Create a grayscale colormap function.
+   Maps normalized value [0,1] to RGB values."
+  (lambda (v)
+    (let* ((clamped (max 0.0 (min 1.0 v)))
+           (gray (if reverse (- 1.0 clamped) clamped))
+           (scaled (+ imin (* gray (- imax imin))))
+           (byte-val (/ scaled 255.0)))
+      (values byte-val byte-val byte-val))))
 
 (defun make-grayscale-colormap (&key (imin 0) (imax 255) (reverse nil))
   "Create a grayscale colormap function.
@@ -187,6 +228,7 @@ Cairo substitutions for PGPLOT
            (scaled (+ imin (* gray (- imax imin))))
            (byte-val (/ scaled 255.0)))
       (values byte-val byte-val byte-val))))
+
 
 (defun render-image (ctx array &key (val1 0.0) (val2 1.0) (reverse t) (colormap nil))
   "Render a 2D array as an image within the current window.

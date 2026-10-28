@@ -1,0 +1,1099 @@
+
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>API for PGPLOT</title>
+<style type="text/css" media="all">
+body {margin: 0 2em .5em 2em;font-family: Verdana,Arial,sans-serif;}
+.package {background: #efefef; 
+          padding: 1.5em 0 1em 0; 
+          text-align: center; 
+          font-size: x-large;}
+.definition {background: #efefef; padding: .3em 1em;}
+a.symbolname, a:visited.symbolname {font-weight: bold;}
+.initargs {font-size: small;}
+.slots {font-size: small;}
+div.label {border-bottom: 1px solid #efefef; margin-bottom: .5em}
+.symboldecl, .footer {margin: 0 2em 2em 2em;}
+.symbolname {font-weight: bold; color: gray;}
+.symboltype {font-style: italic;margin-left: 1.5em; font-size: smaller;}
+.documentation {color: gray; font-family: Fixed,monospace;margin: 0 0 1.5em 0.5em;}
+.packagedocumentation {color: gray; 
+                       font-family: Fixed,monospace;
+                       margin: 0 0 1.5em 0; 
+                       border: 1px solid #efefef; 
+                       padding-left: 1.5em;}
+.symbolcomments span {font-weight: bold;}
+.footer {font-size: x-small; text-align: right; margin-top: 2em; padding-top: 1em; border-top: 1px solid gray;}
+.undocumented {color: red; font-weight: bold;}
+a, a:visited {font-weight: bold; color: gray; text-decoration: none; font-weight: normal;}
+a:hover {border-bottom: 1px solid gray; }
+.label {font-weight: bold; font-style: italic;color: gray;}
+.labeltitle {font-weight: bold; font-style: italic;color: gray; border: 1px solid #efefef; padding: .25em;margin-bottom: .5em}
+.frame {marin-top: 1.5em}
+.expander {border: 2px solid #efefef; color: gray; 
+           font-weight: bold; 
+           font-family: Fixed,monospace; 
+           margin-right: .25em; padding: 0 .25em;cursor: pointer;}
+</style>
+<script type="text/javascript">
+function expand (expander, id) {
+var text = expander.innerHTML;
+if (text == '-')
+{
+  expander.innerHTML = '+';
+  document.getElementById(id).style.display = 'none';
+}
+else
+{
+  expander.innerHTML = '-';
+  document.getElementById(id).style.display = '';
+}
+}</script></head>
+<body>
+<div class="package">
+<div class="definition">API for package: 
+<a class="symbolname" name="pgplot_package" href="#pgplot_package">pgplot</a></div></div>
+<div class="packagedocumentation">
+<pre>:undocumented</pre></div>
+<div class="frame">
+<div class="labeltitle">
+<span class="expander" onclick="expand(this, 'vars');">-</span>Variables</div>
+<div id="vars">
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="*current-pgplot*_vars" href="#*current-pgplot*_vars">*current-pgplot*</a>: 
+<span class="value">nil</span>
+<span class="symboltype">variable</span></div>
+<div class="documentation">
+<pre>The current active pgplot device; ie, the last device used</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="*pgplot-list*_vars" href="#*pgplot-list*_vars">*pgplot-list*</a>: 
+<span class="value">nil</span>
+<span class="symboltype">variable</span></div>
+<div class="documentation">
+<pre>List of all alive PGPLOT devices.</pre></div></div></div></div>
+<div class="frame">
+<div class="labeltitle">
+<span class="expander" onclick="expand(this, 'classes');">-</span>Classes</div>
+<div id="classes">
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="pgplot_class" href="#pgplot_class">pgplot</a>
+<span class="lambdalist">(standard-object)</span>
+<span class="symboltype">class</span></div>
+<div class="documentation">
+<pre></pre></div>
+<div class="slots">
+<div class="label">SLOTS</div>
+<span class="symbolname">is-open</span>
+<div class="documentation">
+<pre>undocumented</pre></div></div></div></div></div>
+<div class="frame">
+<div class="labeltitle">
+<span class="expander" onclick="expand(this, 'functions');">-</span>Functions</div>
+<div id="functions">
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="activate-device_func" href="#activate-device_func">activate-device</a>
+<span class="lambdalist">p &key force-reset</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Make pgplot device P the active one, and enable its settings.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="box_func" href="#box_func">box</a>
+<span class="lambdalist">p &key size font color x-axis y-axis x-bottom x-top y-left y-right x-grid y-grid x-invert-ticks y-invert-ticks x-log y-log x-num-labels-bottom y-num-labels-left x-num-labels-top y-num-labels-right x-project-ticks y-project-ticks x-major-ticks y-major-ticks x-minor-ticks y-minor-ticks y-vertical-num-labels x-force-decimal y-force-decimal x-force-exponential y-force-exponential x-tick y-tick nxsub nysub line-width</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre> Draw a box for pgplot device P.
+Keywords are:
+  SIZE             -  size used for labels (real)
+  FONT             -  which font to use (number or symbol)
+  X-AXIS           -  draw central x axis?   (default NIL)
+  Y-AXIS           -  draw central y axis?   (default NIL)
+  X-BOTTOM, X-TOP  -  draw x axes            (default T)
+  Y-LEFT, Y-RIGHT  -  draw y axis            (default T)
+  X-GRID, Y-GRID   -  draw grids in X,Y      (default NIL)
+  X-INVERT-TICKS, Y-INVERT-TICKS - ticks project outward (default NIL)
+  X-LOG, Y-LOG     -  log axes               (default NIL)
+  X-NUM-LABELS-BOTTOM, Y-NUM-LABELS-LEFT - numerical axes labels (default NIL)
+  X-NUM-LABELS-TOP, Y-NUM-LABELS-RIGHT   - numerical axes labels (default T)
+  X-PROJECT-TICKS, Y-PROJECT-TICKS - project ticks outward, ignored if
+                                     X-INVERT-TICKS set (default NIL)
+  X-MAJOR-TICKS, Y-MAJOR-TICKS  - draw big interval ticks   (default T)
+  X-MINOR-TICKS, Y-MINOR-TICKS  - draw small interval ticks (default T)
+  Y-VERTICAL-NUM-LABELS  - make y axes labels normal vertical text (default T)
+  X-FORCE-DECIMAL, Y-FORCE-DECIMAL - force axis label to be of form 1.234
+                                     (default NIL)
+  X-FORCE-EXPONENTIAL, Y-FORCE-EXPONENTIAL - force exponential notation for
+                                             axis labels (default NIL)
+  X-TICK, Y-TICK   -  world coordinate interval between major tick marks,
+                      0 means choose automatically (default 0)
+  NXSUB, NYSUB     -  the number of subintervals to divide the major
+                      coordinate interval into, 0 means choose automatically
+                      (default 0)
+</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="circle_func" href="#circle_func">circle</a>
+<span class="lambdalist">p x0 y0 radius &key line-width color line-style fill-area-style</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw a circle of radius RADIUS at X0,Y0
+LINE-WIDTH is an integer, COLOR an integer or symbol, LINE-STYLE an
+integer or symbol, and FILL-AREA-STYLE an integer or symbol.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="close-all-devices_func" href="#close-all-devices_func">close-all-devices</a>
+<span class="lambdalist">&key (force nil)</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Close all open devices contained in pgplot::*pgplot-list*.
+
+FORCE option causes the close to be on low device level, iterating
+through all device numbers, in case normal closing causes problems.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="close-device_func" href="#close-device_func">close-device</a>
+<span class="lambdalist">p</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>close a pgplot device object</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="color-wedge_func" href="#color-wedge_func">color-wedge</a>
+<span class="lambdalist">p val1 val2 &key side type min-color-index max-color-index transfer-function disp width label</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Draw a color wedge to annotate an image. 
+ 
+ VAL1 and VAL2 are the limiting values for the brightest/dimmest values
+ SIDE is one of :left :right :top :bottom
+ DISP is the diaplacement of the wedge, in char units
+ WIDTH is the width of the wedge in char units
+ LABEL is the units label
+
+WARNING: the color map and transfer function must be consistent with the original
+IMAGE call - Thus it is best to use this routine from within the IMAGE routine, using the
+COLOR-WEDGE-SIDE keyword to activate a color wedge.
+
+Works only for IMAGE, not GRAY. This would be easy to change. But we never
+really use PGGRAY.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="compute-aspect-ratio-for-panes_func" href="#compute-aspect-ratio-for-panes_func">compute-aspect-ratio-for-panes</a>
+<span class="lambdalist">nx ny &key (pane-aspect-ratio 1.0) (x-separation 0.05) (y-separation 0.05) (top-pad
+                                                                            0.02) (bottom-pad
+                                                                                   0.1) (right-pad
+                                                                                         0.03) (left-pad
+                                                                                                0.15)</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Compute the aspect ratio for a plot necessary to have NXxNY panes
+which have their own aspect ratio of PANE-ASPECT-RATIO.  Useful for
+designing a plot with (for example) square panes.  Return 
+ (VALUES ASPECT-RATIO X-SPAN-OF-ONE-PANE</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="connect_func" href="#connect_func">connect</a>
+<span class="lambdalist">p xvec yvec &key line-width color line-style</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw lines connecting pairs in XVEC, YVEC
+with LINE-WIDTH (integer), COLOR (integer or symbol), and LINE-STYLE
+ (integer or symbol)</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="contour_func" href="#contour_func">contour</a>
+<span class="lambdalist">p a &key contours n-contours min-contour max-contour transformation-matrix i-min-index i-max-index j-min-index j-max-index blank-value line-width color line-style contour-labels intval minint</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>create a contour plot of array A[i,j].  Contours are made at locations in
+vector CONTOURS, but if this is NIL then N-CONTOURS evenly spaced contours
+between optional MIN-CONTOUR and MAX-CONTOUR are made instead.
+TRANSFORMATION-MATRIX (as described in pgplot docs) transforms array i,j to
+user coordinates.  I-MIN-INDEX...etc are the ranges within A to use;
+by default the whole array is used.   CONTOUR-LABELS is an optional
+vector of contour labels corresponding to CONTOURS containing labels,
+and INTVAL and MININT specify when to label contours, as described
+in pgplot manual.  BLANK-VALUE is an optional out-of-range value which
+should not be used when finding MIN/MAX of A[i,j].
+
+For the data array A[I,J], the default coordinate system has
+X increasing with J, and Y increasing with I, rescaled to fit
+exactly within the user coordinates.   If used, the
+transformation matrix (TR) changes this to:
+  X = TR[0,0] + TR[0,1]*J + TR[0,2]*I
+  Y = TR[1,0] + TR[1,1]*J + TR[1,2]*I
+</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="device-to-world_func" href="#device-to-world_func">device-to-world</a>
+<span class="lambdalist">p x y</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>for pgplot device P convert device coordinates X,Y 
+reals or vectors) to user coordinates</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="draw-arrow_func" href="#draw-arrow_func">draw-arrow</a>
+<span class="lambdalist">p x1 y1 x2 y2 &key size color</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw an arrow from X1,Y1 to
+X2,Y2, using current arrow qualities.  SIZE is a real.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="draw-labeled-axis_func" href="#draw-labeled-axis_func">draw-labeled-axis</a>
+<span class="lambdalist">p x1 y1 x2 y2 ticks labels &key orient xdisplacement tikl tikr line-width character-height line-style color</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Draw a labeled axis from x1 to x2, with 
+
+ TICKS a vector of values in [0,1] representing points on line to draw tick marks.
+ LABELS a vector of strings to to write (or NIL)
+ ORIENT the angle in degrees of the text relative to line
+ DISPLACEMENT the offset of the labels, in character units
+ TIKL,TIKR the left and right tick lengths in character units
+ LINE-WIDTH, LINE-STYLE, CHRACTER-HEIGHT, COLOR as usual.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="draw-plot-legend_func" href="#draw-plot-legend_func">draw-plot-legend</a>
+<span class="lambdalist">p x0 y0 legend-list &key x-separation y-separation character-height ymax draw-box blank-first blank-color</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Draw a legend in a plot. 
+
+LEGEND-LIST is a list containing the legend lines
+  (("text"  :POINT :CIRCLE .. [keyword arguments for PGPLOT:POINTS])
+   ("text"  :LINE             [keyword arguments for PGPLOT:CONNECT])
+   ("text"  :RECTANGLE        [keyword arguments for PGPLOT:RECTANGLE])
+   ;; overlapping legend types specified as follows, with lists
+   ("text"  (:POINT        [keyword arguments for PGPLOT:POINT])
+              (:LINE         [keyword arguments for PGPLOT:LINE])))
+
+see PGPLOT::*SAMPLE-PLOT-LEGEND* for an example
+
+All coordinates are such that the viewport is remapped to x=[0,1],y=[0,YMAX]
+where YMAX is 1 by default, but can be set to the aspect ratio ysize/xsize
+for non-square plots.
+
+X-SEPARATION is the spacing between the token (point, line, rectangle) and
+the text. 
+
+Y-SEPARATION is the separation between lines of text
+
+when BLANK-FIRST is set, it first blanks the region with BLANK-COLOR,
+and then draws the legend.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="draw-wedge_func" href="#draw-wedge_func">draw-wedge</a>
+<span class="lambdalist">p x0 y0 r1 r2 theta1 theta2 &key color line-width line-style fill-area-style draw-polygon draw-boundary</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Draw a wedge, meaning a segment of two nested circles, at
+X0,YO. Circles are of radii R1 and R2, and extend from degree angle
+THETA1 to THETA2, where THETA=0 is the postive X direction.  The wedge
+is drawn as an outline (if DRAW-BOUNDARY is T) and as polygon (if
+DRAW-POLYGON is T). Options LINE-WIDTH, LINE-STYLE, COLOR are passed
+to both the line drawing and the polygon drawing command, and
+FILL-AREA-STYLE is passed to the polygon drawing command as in
+PGPLOT:POLYGON.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="ellipse_func" href="#ellipse_func">ellipse</a>
+<span class="lambdalist">p x-center y-center major-axis minor-axis theta-deg &key line-width color line-style fill-area-style n-points</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw an ellipse of semi-major-axes
+MAJOR-AXIS and MINOR-AXIS, with the major axis at an angle
+THETA-DEG counterclockwise from +x axis.
+LINE-WIDTH is an integer, COLOR an integer or symbol, LINE-STYLE an
+integer or symbol, and FILL-AREA-STYLE an integer or symbol.
+N-POINTS is the number of segments to use.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="erase_func" href="#erase_func">erase</a>
+<span class="lambdalist">p</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Erase a pgplot device P</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="errorbars_func" href="#errorbars_func">errorbars</a>
+<span class="lambdalist">p xvec yvec evec &key direction size line-width color line-style</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw errorbars at points represented by pairs
+in XVEC, YVEC, of magnitude of points in vector EVEC.
+DIRECTION can be :X :Y :PLUS-X :PLUS-Y :MINUS-X :MINUS-Y (default is :Y)
+LINE-WIDTH is an integer, COLOR is an integer or symobl, and
+LINE-STYLE is an integer or symbol.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="generate-linear-tick-intervals_func" href="#generate-linear-tick-intervals_func">generate-linear-tick-intervals</a>
+<span class="lambdalist">xstart xend</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Create appropriately chosen intervals for small and large ticks between 
+ xstart and xend.
+
+ Return (values big-tick-list small-tick-list) where each tick in the
+ list is a list (tick-value v-value ndecimals) where v-value is the
+ fraction of the line from [xstart,xend], and ndecimals is the number
+ of decimals points that the number should be printed</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="generate-log-tick-intervals_func" href="#generate-log-tick-intervals_func">generate-log-tick-intervals</a>
+<span class="lambdalist">xstart xend</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Generate logarithmic tick intervals; see GENERATE-LINEAR-TICK-INTERVALS.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-arrow-head-style_func" href="#get-arrow-head-style_func">get-arrow-head-style</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-aspect-ratio_func" href="#get-aspect-ratio_func">get-aspect-ratio</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-character-font_func" href="#get-character-font_func">get-character-font</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-character-height_func" href="#get-character-height_func">get-character-height</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-clipping-state_func" href="#get-clipping-state_func">get-clipping-state</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-color-index_func" href="#get-color-index_func">get-color-index</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-color-index-range_func" href="#get-color-index-range_func">get-color-index-range</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-fill-area-style_func" href="#get-fill-area-style_func">get-fill-area-style</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-hatching-style_func" href="#get-hatching-style_func">get-hatching-style</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-line-style_func" href="#get-line-style_func">get-line-style</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-line-width_func" href="#get-line-width_func">get-line-width</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-pen-position_func" href="#get-pen-position_func">get-pen-position</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-viewport_func" href="#get-viewport_func">get-viewport</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-width_func" href="#get-width_func">get-width</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="get-window_func" href="#get-window_func">get-window</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="hist_func" href="#hist_func">hist</a>
+<span class="lambdalist">p xpts &key binvec nbins xleft xright flip-x log normalize normalize-includes-outside y-frac y-scale y-max set-window line-width color line-style fill fill-color fill-line-width fill-line-style</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, histogram a list or array of numbers XPTS.
+If BINVEC is specified, use it as the bin boundaries, else make
+ NBINS evenly spaced bins.
+XLEFT, XRIGHT are the optional X axis limits for the plot, set by
+ default to be the limits of XPTS
+FLIP-X is a flag about whether to mirror-reflect the x axis.
+LOG is a flag whether to plot the log10 of the number of points in
+ each bin.
+NORMALIZE is a flag denoting whether the bin counts should be
+ normalized so the integral of the distribution is 1 or
+ (if NORMALIZE is a number) NORMALIZE
+NORMALIZE-INCLUDES-OUTSIDE - if T, then adjust the normalization to include
+ the points lying outside XLEFT, XRIGHT - eg, if 1/2 of the points are outside
+ then the histogram will be only 1/2 as high
+Y-FRAC is the fraction of the total height the highest bin should reach.
+Y-SCALE is a rescaling for the bin contents.
+SET-WINDOW is a flag (T by default) that controls whether the window
+ is reset before plotting. SET-WINDOW=NIL is useful for multiple plots
+LINE-WIDTH is an optional integer, COLOR an integer or symbol,
+  LINE-STYLE an integer or symbol
+FILL is a boolean flag whether to fill the histogram, and
+  FILL-COLOR, FILL-LINE-WIDTH FILL-LINE-STYLE are like
+  COLOR, LINE-WIDTH, LINE-STYLE</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="horizontal-bar-chart_func" href="#horizontal-bar-chart_func">horizontal-bar-chart</a>
+<span class="lambdalist">p quantity-vec &key label-vec border-color fill-color fill-style character-size-scale label-buffer-scale set-limits draw-box size bar-width x-span x-log x-label-offset label-position</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Draw a bar chart with horizontal bars
+
+  P               the pgplot device
+  QUANTITY-VEC    the lengths of the bars
+  LABEL-VEC       optional vector of labels for bars
+  BORDER-COLOR    symbol or vector of symbols for bar border color 
+  FILL-COLOR      symbol or vector of symbols for bar interior color
+  FILL-STYLE      symbol or vector of symbols for bar interior style
+  CHARACTER-SIZE-SCALE  factor by which to adjust label sizes; usually 1.0
+  LABEL-BUFFER-SCALE  factor by which to adjust space around labels;
+                      usually 1.0
+  SET-LIMITS      set limits of plot from data
+  DRAW-BOX        draw the box?
+  SIZE            size for box
+  BAR-WIDTH       how wide the bars should be (compared to 1.0)
+  X-SPAN          how wide to make plot, relative to longest bar
+  X-LOG           the X axis is a base-10 log; make axis logarithmic
+  X-LABEL-OFFSET  where (in fraction of horizontal span) to start bar labels
+  LABEL-POSITION  :AFTER or :INSIDE; where labels go relative to bars
+</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="image_func" href="#image_func">image</a>
+<span class="lambdalist">p a &key type transformation-matrix i-min-index i-max-index j-min-index j-max-index val1 val2 min-color-index max-color-index reverse transfer-function color-wedge-side color-wedge-width color-wedge-disp color-wedge-label character-height</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For a pgplot P, plot 2d real array A as an image.
+TYPE is the name of the colormap to use (eg :DEFAULT :GRAY :COLOR :HEAT)
+TRANSFORMATION-MATRIX is a matrix to transform array coordinates to
+  user coordinates.
+I-MIN-INDEX, etc are the inclusive indices to use in array A[I,J]
+VAL1 and VAL2 are optional values in A to the extremes of the color range.
+MIN-COLOR-INDEX and MAX-COLOR-INDEX are the color index range to use,
+ overriding TYPE.
+TRANSFER-FUNCTION is the transfer function of the array to the color index,
+ one of :LINEAR :LOG :SQRT 
+REVERSE reverses the color map by swapping VAL1 and VAL2
+
+Returns (values VAL1 VAL2) to allow subsequent use of COLOR-WEDGE
+However, it is better to use COLOR-WEDGE-SIDE etc to make a color
+wedge immediately, because colormap and transfer function may be
+reset if wedge is made in two calls.
+
+For the data array A[I,J], the default coordinate system has
+X increasing with J, and Y increasing with I, rescaled to fit
+exactly within the user coordinates.   If used, the
+transformation matrix (TR) changes this to:
+  X = TR[0,0] + TR[0,1]*J + TR[0,2]*I
+  Y = TR[1,0] + TR[1,1]*J + TR[1,2]*I
+
+
+QUIRK - the color wedge, if drawn, is linear, which is awkward for a
+nonlinear transfer function, because the entire wedge will be colored
+at the high end of the scale, and most of the colors will be
+compressed into the low end.  To make this work, one would need a
+custom wedge plotting function with an appropriate non-linear scale.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="insert-diverging-colormap_func" href="#insert-diverging-colormap_func">insert-diverging-colormap</a>
+<span class="lambdalist">p &key (name custom) (rgb1 #(0.0 0.2 0.7)) (rgb2 #(0.6 0.03 0.01)) (first-color-is-background
+                                                                    nil) (imin
+                                                                          32) (imax
+                                                                               99)</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Insert a 'diverging' colormap spanning RGB1 to RGB2 
+see  
+  'Diverging Color Maps for Scientific Visualization'
+    Kenneth Moreland, Sandia Labs
+  http://www.cs.unm.edu/~kmorel/documents/ColorMaps/ColorMapsExpanded.pdf
+
+The indices taken are IMIN to IMAX, by default cloobbering the HEAT and COLOR
+maps.
+
+If FIRST-COLOR-IS-BACKGROUND is set, then the first color of the
+range is set to the background of the plot, for the purpose of creating  
+a blanked image with null values.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="insert-maximum-gray-colormap_func" href="#insert-maximum-gray-colormap_func">insert-maximum-gray-colormap</a>
+<span class="lambdalist">p &key (first-color-is-background nil)</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Make the GRAY colormap take up all non-plotting indices (16 to 99) to
+allow good grayscale plotting</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="insert-yellow-blue-colormap_func" href="#insert-yellow-blue-colormap_func">insert-yellow-blue-colormap</a>
+<span class="lambdalist">p &key (name custom) (first-color-is-background nil) (imin 32) (imax 99)</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Insert a yellow-to-blue colormap.
+The indices taken are IMIN to IMAX, by default cloobbering the HEAT
+and COLOR maps.
+
+If FIRST-COLOR-IS-BACKGROUND is set, then the first color of the
+range is set to the background of the plot, for the purpose of creating  
+a blanked image with null values.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="is-open_func" href="#is-open_func">is-open</a>
+<span class="lambdalist">object</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="make-2d-density-image_func" href="#make-2d-density-image_func">make-2d-density-image</a>
+<span class="lambdalist">xseq yseq &key (nx 100) (ny 100) xmin xmax ymin ymax</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Given sequences of points XSEQ and YSEQ, bin them into a float
+array of size NYxNX, suitable for plotting as an image or a contour
+plot.
+
+XMIN XMAX YMIN YMAX, if not given, default to the extrema of
+the input arrays.
+
+Return (VALUES ARRAY XMIN XMAX YMIN YMAX N-INSIDE N-OUTSIDE)</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="make-2d-transform-matrix_func" href="#make-2d-transform-matrix_func">make-2d-transform-matrix</a>
+<span class="lambdalist">&key (xscale 1.0) (yscale 1.0) (rotation 0.0) (ixref 0) (iyref 0) (xref 0.0) (yref
+                                                                              0.0) x0 y0</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Make a transformation matrix (a 2x3 array) as used by IMAGE
+and CONTOUR.
+
+For the data array A[I,J], the default coordinate system has
+X increasing with J, and Y increasing with I, rescaled to fit
+exactly within the user coordinates.   If used, the
+transformation matrix (TR) changes this to:
+  X = TR[0,0] + TR[0,1]*J + TR[0,2]*I
+  Y = TR[1,0] + TR[1,1]*J + TR[1,2]*I
+
+The transformation is construced as
+
+  X      X0                            J 
+     =       +  ROTATION x SCALING  x
+  Y      Y0                            I
+
+The sense of the rotation is +X rotates into +Y, and flips can
+be accomplished by setting XSCALE to a negative value.
+
+The additive X0,Y0 part of the transformation is defined so that array
+elements IXREF,IYREF map into XREF,YREF.   Alternatively, if X0 and Y0 are specified,
+then IXREF,IYREF,XREF,YREF are ignored.
+</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="modify-colormap_func" href="#modify-colormap_func">modify-colormap</a>
+<span class="lambdalist">p imin imax colormap-name &key color-function first-color-is-background</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Either modify an existing :GRAY, :COLOR, :HEAT
+colormap, if COLOR-FUNCTION is undefined, stretching it to accomodate
+the index range IMIN to IMAX, and clobbering other overlapping
+colormaps.
+
+Else insert a new colormap such that (COLOR-FUNCTION x) returns
+  (VALUES RED BLUE GREEN) where red,blue,green are in [0,1] and X
+is the distance down the index range, also [0,1].    This operation
+will clobber existing colormaps.  Default colormap ranges are
+
+  Default Colors [0,15]  - do not alter this to allow normal plotting
+  Gray           [16,31]
+  Color          [32,76]
+  Heat           [77,99]
+
+If FIRST-COLOR-IS-BACKGROUND is set, then the first color of the range
+is set to be be the background color.  This is useful for blanking images.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="open-device_func" href="#open-device_func">open-device</a>
+<span class="lambdalist">device &key (plot-name untitled) (filename nil) (font roman) (square nil) (aspect-ratio) (height) (width) (invert
+                                                                                                           nil)</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>open a pgplot device, where DEVICE is one of 
+:X11 :NULL :GIF :VGIF :PSLAND :PSPORT :PS.
+PLOT-NAME is an optional name
+FILENAME is the file to which to write if device type chosen targets file
+FONT is the font to use
+SQUARE is a flag that tries to make the final plot square
+ASPECT-RATIO tries to set the aspect ratio (over-rides SQUARE)
+  1 means square; <1 means horizontal rectangle; >1 means vertical rectangle
+HEIGHT-WIDTH tries to set the height and width (mm), and overrides ASPECT-RATIO
+INVERT inverts normal color scheme</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="pgaxis_func" href="#pgaxis_func">pgaxis</a>
+<span class="lambdalist">p opt x1 y1 x2 y2 v1 v2 step nsub dmajl dmajr fmin disp orient</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Direct call of pgplot PGAXIS routine to draw a labeled axis.  
+See PGPLOT documentation.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="pgmtxt_func" href="#pgmtxt_func">pgmtxt</a>
+<span class="lambdalist">p side disp coord fjust text</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>A simple front end to the PGMTXT PGPLOT routine
+
+SIDE   = 'B', 'L', 'T',or 'R'; if it includes 'LV' 
+         text is perpendicular to frame.
+DISP   = displacment (+/-) relative to viewport in chars
+COORD  = location of string along viewport (0.5=center)
+FJUST  = justification relative to COORD.   0 means left 
+         justified, 1 is right justified, 0.5 means 
+         centered, and other values are not useful.
+TEXT   = string to be written.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="pgplot-cursor-position_func" href="#pgplot-cursor-position_func">pgplot-cursor-position</a>
+<span class="lambdalist">p &key x y use-last-pos</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, get the cursor position, returning
+ (values x y char-number), initially placing cursor at keyword arguments
+x,y or using the last cursor position if use-last-pos is T, the default</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="pgplot-encode-float-sci-notation_func" href="#pgplot-encode-float-sci-notation_func">pgplot-encode-float-sci-notation</a>
+<span class="lambdalist">x ndigits &key (min-exponent 0) (show-plus-sign nil)</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Encode a number in scientific notation using pgplot escaping
+syntax. MIN-EXPONENT is the smallest absolute value exponent that is
+expressed in scientific notation. By default it is zero, so all
+numbers are expressed in scientific notaton. If SHOW-PLUS-SIGN is T,
+then positive numbers have leading plus sign.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="pgplot-p_func" href="#pgplot-p_func">pgplot-p</a>
+<span class="lambdalist">x</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>:undocumented</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="plain-box_func" href="#plain-box_func">plain-box</a>
+<span class="lambdalist">p &key color line-width x-axis y-axis x-bottom x-top y-left y-right x-grid y-grid</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Draw a box without ticks or numbers</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="plotlabel_func" href="#plotlabel_func">plotlabel</a>
+<span class="lambdalist">p xlabel ylabel toplabel</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>label pgplot device P with XLABEL, YLABEL, TOPLABEL.
+Labels are not well placed, and (pgplot:xlabel p "label")
+is preferred.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="points_func" href="#points_func">points</a>
+<span class="lambdalist">p x y symbol &key size color border-color</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>In pgplot device P draw SYMBOLS at X,Y (vector or real).
+SYMBOL may be a symbol in pgplot::*point-symbol-alist* or
+an integer.  SIZE is a real, and COLOR is an integer or symbol.
+
+If BORDER-COLOR is set, then draw a border around the symbol
+in this color.  This works only for symbols like :FILLED-SQUARE
+that have a matching symbol :OPEN-SQUARE.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="polygon_func" href="#polygon_func">polygon</a>
+<span class="lambdalist">p xvec yvec &key line-width color line-style draw-outline outline-color fill-area-style</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw a polygon with vertices
+given by pairs in vectors XVEC YVEC.
+LINE-WIDTH is an integer, COLOR an integer or symbol, LINE-STYLE an
+integer or symbol, and FILL-AREA-STYLE an integer or symbol.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="rectangle_func" href="#rectangle_func">rectangle</a>
+<span class="lambdalist">p x1 x2 y1 y2 &key line-width color line-style draw-outline outline-color fill-area-style</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw an rectangle with corners X1,Y1 and X2,Y2
+LINE-WIDTH is an integer, COLOR an integer or symbol, LINE-STYLE an
+integer or symbol, and FILL-AREA-STYLE an integer or symbol.
+
+DRAW-OUTLINE, if T (default), draws an outline as well as the areay
+style specified.
+</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-arrow-head-style_func" href="#set-arrow-head-style_func">set-arrow-head-style</a>
+<span class="lambdalist">p fs angle barb</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the arrow head style of pgplot.  FS can be 1, 2, :FILLED,
+:OUTLINE.  ANGLE is the angle of the tip; BARB is the fraction of the
+triangular arrow-head that is cut away from the back.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-character-font_func" href="#set-character-font_func">set-character-font</a>
+<span class="lambdalist">p font</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the current character font of device P, where font
+is either an integer 1-4, or one of :DEFAULT :ROMAN :ITALIC :SCRIPT</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-character-height_func" href="#set-character-height_func">set-character-height</a>
+<span class="lambdalist">p height</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the character height of pgplot device P to a number.
+Default character height is 2.0</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-clipping-state_func" href="#set-clipping-state_func">set-clipping-state</a>
+<span class="lambdalist">p state</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set clipping state of pgplot device P.  STATE=1 means clip at
+edge of viewport, 0 means don't clip</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-color_func" href="#set-color_func">set-color</a>
+<span class="lambdalist">p c</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the plotting color of pgplot device P to
+C, where C is either an integer from the colormap, or a
+symbol for named colors</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-color-index-range_func" href="#set-color-index-range_func">set-color-index-range</a>
+<span class="lambdalist">p ilo ihi</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the color index rangle of pgplot device P to be ILO..IHI.
+This is used for drawing imagemaps or greymaps</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-colormap-color_func" href="#set-colormap-color_func">set-colormap-color</a>
+<span class="lambdalist">p ic r g b &key name</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, replace the current colormap's color
+denoted by integer IC with one given by the reals R,G,B
+NAME is the optional new name for the color</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-current-pane_func" href="#set-current-pane_func">set-current-pane</a>
+<span class="lambdalist">p ix nx iy ny &key x-separation y-separation top-pad bottom-pad right-pad left-pad viewport</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, divide the entire plottng area so that the
+current viewport correspond to the IX'th of NX and IY'th of NY
+sub-panes.  X-SEPARATION, Y-SEPARATION are the distances to assume
+between panes; TOP-PAD, BOTTOM-PAD, LEFT-PAD, RIGHT-PAD are blank
+spaces to leave at sides of entire plot, to allow for labels.
+VIEWPORT is a list representing the viewport within which the panes
+are defined.  By default VIEWPORT is the entire device. </pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-device-geometry_func" href="#set-device-geometry_func">set-device-geometry</a>
+<span class="lambdalist">p width height</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Set the window height to WIDTH x HEIGHT in mm</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-fill-area-style_func" href="#set-fill-area-style_func">set-fill-area-style</a>
+<span class="lambdalist">p s</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the fill area style of pgplot device P to
+S, where S is either an integer or one of
+:SOLID :OUTLINE :HATCHED :CROSS-HATCHED</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-hatching-style_func" href="#set-hatching-style_func">set-hatching-style</a>
+<span class="lambdalist">p angle sepn phase</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set hatching style of pgplot device P.
+ANGLE is angle wrt horizontal.  SEPN is separation in
+units of the view surface.  PHASE in [0,1] is the offset
+within the separation</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-line-style_func" href="#set-line-style_func">set-line-style</a>
+<span class="lambdalist">p s</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the line style of pgplot device P to
+S, where S is either an integer or one of
+:SOLID :DASHED :DASHED-DOT :DOTTED :DASH-DOT-DOT-DOT</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-line-width_func" href="#set-line-width_func">set-line-width</a>
+<span class="lambdalist">p lw</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the line width pgplot device P to
+integer value LW</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-text-background-color_func" href="#set-text-background-color_func">set-text-background-color</a>
+<span class="lambdalist">p c</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the text background color of pgplot device P to
+C, where C is either an integer from the colormap, or a
+symbol for named colors</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-viewport_func" href="#set-viewport_func">set-viewport</a>
+<span class="lambdalist">p xleft xright ybot ytop &key viewport</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>set the viewport of device P.  This is the region in absolute
+coordinates over which plotting is active.  XLEFT, XRIGHT, YBOT, YTOP
+are all in [0,1].  If VIEWPORT is given, then the coordinates given are 
+relative to it, and not the absolute frame boundaries 0..1</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="set-window_func" href="#set-window_func">set-window</a>
+<span class="lambdalist">p x1 x2 y1 y2</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Set the window (user coordinates) of pgplot device P within the
+current viewport.  X1,X2,Y1,Y2 are the user coordinates to map
+to the viewport.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="text-bounding-box_func" href="#text-bounding-box_func">text-bounding-box</a>
+<span class="lambdalist">p text &key x0 y0 angle fjust device-coords character-height font</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Like WRITE-TEXT but returns two vectors representing the bounding
+box the text would occupy if printed. Returns (VALUES XVEC YVEC) where
+each vector is of length 4, and contains 4 corners of bounding box:
+lower left, upper left, upper right, lower right</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="toplabel_func" href="#toplabel_func">toplabel</a>
+<span class="lambdalist">p text &key x-offset y-offset color character-height font</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw top label TEXT, nudging it
+by X-OFFSET, Y-OFFSET in device coordinates.
+If used, COLOR is an integer or symbol, CHARACTER-HEIGHT is a real,
+and FONT is an integer or symbol</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="vector-field_func" href="#vector-field_func">vector-field</a>
+<span class="lambdalist">p a b &key arrow-scale-factor arrow-head-style arrow-head-size arrow-position transformation-matrix i-min-index i-max-index j-min-index j-max-index line-width color line-style blank-val</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Create a vector field from similar arrays A and B.
+
+A is the X, or second index, component of the flow and B is the Y, or
+first index, component of the flow.  Most arguments are similar to
+CONTOUR otherwise.  In other words, if A filled with 1 and B with zero, the flow
+will go from left to right assuming no transformation matrix.
+
+ARROW-SCALE-FACTOR is what is called C in the PGPLOT manual.  BLANK-VAL is the value
+that is ignored for plotting, by default MOST-POSITIVE-SINGLE-FLOAT</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="with-pgplot-settings_func" href="#with-pgplot-settings_func">with-pgplot-settings</a>
+<span class="lambdalist">(pgplot &key (font) (character-height) (text-background-color) (color)
+ (fill-area-style) (line-style) (line-width) (arrow-head-style)
+ (hatching-style) (clipping-state)) &body body</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>macro to run BODY with pgplot's  properties temporarily
+set to give values.
+ eg draw a blue box
+  (with-pgplot-settings (pgplot :color :blue)
+       (pgplot:box pgplot))
+available settings are 
+ :FONT :CHARACTER-HEIGHT :TEXT-BACKGROUND-COLOR :COLOR
+ :FILL-AREA-STYLE :LINE-STYLE :CLIPPING-STATE
+ :ARROW-HEAD-STYLE  (a list of fs,angle,barb)
+ :HATCHING-STYLE    (a list of angle,sepn,phase)
+
+whenever NIL is passed as as value (eg :font nil) in the
+macroexpanded code at runtime, then this item is neither saved
+nor restored, it being assumed that no value was specified.
+</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="with-viewport_func" href="#with-viewport_func">with-viewport</a>
+<span class="lambdalist">(p xleft xright ybot ytop) &body body</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Evaluate BODY with pgplot P's viewport temporariy set to XLEFT XRIGHT
+XBOT YTOP</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="with-window_func" href="#with-window_func">with-window</a>
+<span class="lambdalist">(p x0 x1 y0 y1) &body body</span>
+<span class="symboltype">function</span></div>
+<div class="documentation">
+<pre>Evaluate BODY with pgplot P's viewport temporariy set to X0 X1
+YO Y1</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="world-to-device_func" href="#world-to-device_func">world-to-device</a>
+<span class="lambdalist">p x y</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>for pgplot device P convert world coordinates X,Y (either
+reals or vectors) to device coordinates in [0,1]</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="write-blanked-text_func" href="#write-blanked-text_func">write-blanked-text</a>
+<span class="lambdalist">p text x y &key fjust angle device-coords color character-height font center buffer blanking-color draw-box box-color</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>Like WRITE-TEXT, but draw a blanking rectangle beforehand. BUFFER
+is a buffer factor for expanding the rectangle, and BLANKING-COLOR is
+the color of the rectangle</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="write-text_func" href="#write-text_func">write-text</a>
+<span class="lambdalist">p text x y &key fjust angle device-coords color character-height font center</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, write text string STRING at location x,y,
+FJUST is justification (0=left justification at x,y; 1=right justified).
+ANGLE is angle counterclockwise from horizontal.
+COLOR is a symbol or integer;  
+CHARACTER-HEIGHT is a real;
+FONT is a symbol or integer
+CENTER is T/NIL whether the text should be centered at X,Y. Otherwise
+  it starts at X,Y.  Unlike FJUST, CENTER adjusts up/down as well 
+  as left/right.</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="xlabel_func" href="#xlabel_func">xlabel</a>
+<span class="lambdalist">p text &key x-offset y-offset color character-height font</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw x axis label TEXT, nudging it
+by X-OFFSET, Y-OFFSET in device coordinates.
+If used, COLOR is an integer or symbol, CHARACTER-HEIGHT is a real,
+and FONT is an integer or symbol</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="ylabel_func" href="#ylabel_func">ylabel</a>
+<span class="lambdalist">p text &key x-offset y-offset color character-height font</span>
+<span class="symboltype">standard-generic-function</span></div>
+<div class="documentation">
+<pre>For pgplot device P, draw y axis label TEXT, nudging it
+by X-OFFSET, Y-OFFSET in device coordinates.
+If used, COLOR is an integer or symbol, CHARACTER-HEIGHT is a real,
+and FONT is an integer or symbol</pre></div></div></div></div>
+<div class="frame">
+<div class="labeltitle">
+<span class="expander" onclick="expand(this, 'macros');">-</span>Macros</div>
+<div id="macros">
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="with-pgplot-settings_macro" href="#with-pgplot-settings_macro">with-pgplot-settings</a>
+<span class="lambdalist">(pgplot &key (font) (character-height) (text-background-color) (color)
+ (fill-area-style) (line-style) (line-width) (arrow-head-style)
+ (hatching-style) (clipping-state)) &body body</span>
+<span class="symboltype">macro</span></div>
+<div class="documentation">
+<pre>macro to run BODY with pgplot's  properties temporarily
+set to give values.
+ eg draw a blue box
+  (with-pgplot-settings (pgplot :color :blue)
+       (pgplot:box pgplot))
+available settings are 
+ :FONT :CHARACTER-HEIGHT :TEXT-BACKGROUND-COLOR :COLOR
+ :FILL-AREA-STYLE :LINE-STYLE :CLIPPING-STATE
+ :ARROW-HEAD-STYLE  (a list of fs,angle,barb)
+ :HATCHING-STYLE    (a list of angle,sepn,phase)
+
+whenever NIL is passed as as value (eg :font nil) in the
+macroexpanded code at runtime, then this item is neither saved
+nor restored, it being assumed that no value was specified.
+</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="with-viewport_macro" href="#with-viewport_macro">with-viewport</a>
+<span class="lambdalist">(p xleft xright ybot ytop) &body body</span>
+<span class="symboltype">macro</span></div>
+<div class="documentation">
+<pre>Evaluate BODY with pgplot P's viewport temporariy set to XLEFT XRIGHT
+XBOT YTOP</pre></div></div>
+<div class="symboldecl">
+<div class="definition">
+<a class="symbolname" name="with-window_macro" href="#with-window_macro">with-window</a>
+<span class="lambdalist">(p x0 x1 y0 y1) &body body</span>
+<span class="symboltype">macro</span></div>
+<div class="documentation">
+<pre>Evaluate BODY with pgplot P's viewport temporariy set to X0 X1
+YO Y1</pre></div></div></div></div>
+<div class="footer">Generated by: 
+<a href="http://common-lisp.net/project/cl-api">CL-API</a></div></body></html>

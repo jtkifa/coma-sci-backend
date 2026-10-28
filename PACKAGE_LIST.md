@@ -111,6 +111,7 @@ Complete inventory of all packages in the coma-sci-backend repository.
 
 ## Plotting
 1. cl-cairo2 - 2d graphics package exporting PNG, PDF, PS, TIFF, SVG, JPEG, for stamps using Lisp package 
+2. cl-pgplot - needed only for photometry plots by phot-calib - could be removed eventually
 
 ## External Packages
 1. lparallel - Parallel processing library

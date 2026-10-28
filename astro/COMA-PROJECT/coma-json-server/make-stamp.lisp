@@ -9,7 +9,7 @@
                  "EXTENSION":1, // if extension is not the default one
 
                  "STAMP-FILE":"/stamp_dir/sample_stamp.pdf",
-                 "STAMP-TYPE":"PDF", //  PDF, PS,  PNG, JPEG, TIFF or SVG
+                 "STAMP-TYPE":"PDF", //  PDF, PS,  PNG, SVG, or SVGZ
                 
                  // the method used to determine the stamp center
                  "STAMP-CENTER"=[1000,1100], // [xpix,ypix] or [ra,dec] or "OBJECT"
@@ -170,11 +170,9 @@
       (setf stamp-type
 	    (cond ((equalp stamp-type "PDF") :pdf)
 		  ((equalp stamp-type "PS") :ps)
-		  ;;((equalp stamp-type "GIF") :gif)
-		  ((equalp stamp-type "JPEG") :jpeg)
-		  ((equalp stamp-type "JPG") :jpeg)
+		  ((equalp stamp-type "PNG") :png)
 		  ((equalp stamp-type "SVG") :svg)
-		  ((equalp stamp-type "TIFF") :tiff)
+		  ((equalp stamp-type "SVGZ") :svgz)
 		  (t (return-with-error
 		      "INVALID-STAMP-TYPE"
 		      (format nil "Unknown stamp type ~A"

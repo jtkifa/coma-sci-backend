@@ -379,10 +379,10 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
                      (markers nil)
                      (device-size 800))  ; output size in pixels
   "Extract a stamp from FITS-FILE and render using Cairo.
-   PLOT-TYPE is :PDF, :PS,  :PNG, :JPEG, :TIFF or :SVG.
+   PLOT-TYPE is :PDF, :PS, :PNG, :SVG, or :SVGZ.
    X0, Y0, SIZE define the stamp region in pixels.
    Returns T on success."
-
+  (declare (type (member :ps :pdf :png :svg :svgz) plot-type))
   (when (not output-file)
     (error "OUTPUT-FILE is required"))
 
@@ -522,6 +522,17 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
   "Convenience wrapper for make-stamp with :PDF output"
   (make-stamp fits-file :pdf x0 y0 size
               :output-file pdf-file
+              :extension extension :wcs wcs :toplabel toplabel
+              :scaling scaling :sigma-stretch sigma-stretch
+              :sigma-offset sigma-offset :num-labels num-labels
+              :markers markers))
+
+(defun make-svgz-stamp (fits-file svgz-file x0 y0 size
+                       &key extension wcs toplabel (scaling :linear)
+                            sigma-stretch sigma-offset num-labels markers)
+  "Convenience wrapper for make-stamp with :SVGZ (gzipped SVG) output"
+  (make-stamp fits-file :svgz x0 y0 size
+              :output-file svgz-file
               :extension extension :wcs wcs :toplabel toplabel
               :scaling scaling :sigma-stretch sigma-stretch
               :sigma-offset sigma-offset :num-labels num-labels

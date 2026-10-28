@@ -39,8 +39,9 @@ The following libraries are built from source during the Docker build:
 - **CDS client** - Catalog access
 
 **From Ubuntu packages:**
-- XPA, WCS, PGPLOT, TERAPIX tools (SExtractor, SCAMP, etc.)
+- XPA, WCS, libcairo,  TERAPIX tools (SExtractor, SCAMP, etc.)
 - FFTW3
+- PGPLOT   (now needed only for phot-calib diagnostic plots)
 
 ### 2. Lisp Application Build
 
