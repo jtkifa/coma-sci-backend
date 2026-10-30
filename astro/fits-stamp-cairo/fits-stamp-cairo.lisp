@@ -51,6 +51,9 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
    (north-vector :initform nil :initarg :north-vector :accessor north-vector)
    (east-vector :initform nil :initarg :east-vector :accessor east-vector)
    (axis-length :initform 0.15 :initarg :axis-length :accessor axis-length)
+   (arrow-head-angle :initform 30 :initarg :arrow-head-angle
+		     :accessor arrow-head-angle)
+   (arrow-size :initform 1.5 :initarg :arrow-size :accessor arrow-size)
    (weight :initform 5)
    (color :initform :red)))
 
@@ -66,6 +69,8 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
    (xc :initform 0.13 :initarg :xc :accessor xc)
    (yc :initform 0.87 :initarg :yc :accessor yc)
    (arrow-size :initform 1.0 :initarg :arrow-size :accessor arrow-size)
+   (arrow-head-angle :initform 20 :initarg :arrow-head-angle
+		     :accessor arrow-head-angle)
    (weight :initform 5)
    (color :initform :red)))
 
@@ -75,6 +80,8 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
    (ya :initform 0.0 :initarg :ya :accessor arrow-ya)
    (yb :initform 1.0 :initarg :yb :accessor arrow-yb)
    (arrow-size :initform 2.0 :initarg :arrow-size :accessor arrow-size)
+   (arrow-head-angle :initform 30 :initarg :arrow-head-angle
+		     :accessor arrow-head-angle)
    (weight :initform 5)
    (coordinate-units :initform :pixel :initarg :coordinate-units :accessor coordinate-units)))
 
@@ -161,7 +168,8 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
                               (coordinate-units the-arrow) x0 y0 size wcs)
       (draw-arrow ctx xa ya xb yb
                   :color (fsm-color the-arrow)
-                  :size (arrow-size the-arrow)))))
+                  :size (arrow-size the-arrow)
+		  :head-angle (arrow-head-angle the-arrow)))))
 
 (defmethod render-marker ((the-points points) (ctx stamp-context)
                           &key x0 y0 size wcs)
@@ -229,8 +237,10 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
 (defmethod render-marker ((the-cr compass-rose) (ctx stamp-context)
                           &key x0 y0 size wcs)
   (let* ((o-vector (make-array 2 :initial-element 0.0))
+	 ;; vectors pointing N,E
          (n-vector (copy-seq (north-vector the-cr)))
          (e-vector (copy-seq (east-vector the-cr)))
+	 ;; vectors for positioning the N,E labels
          (nl-vector nil) (el-vector nil)
          (axis-length/pix (* size (axis-length the-cr)))
          (color (fsm-color the-cr))
@@ -239,21 +249,18 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
                   (or (wcs the-cr) wcs))))
     (when (not (or (and n-vector e-vector) wcs))
       (error "Cannot render COMPASS-ROSE without N-VECTOR,E-VECTOR or WCS"))
-    ;; Compute vectors from WCS if needed
+    ;; Compute pixel-space vectors from WCS if needed
     (when (not n-vector)
       (multiple-value-bind (xpix ypix)
-          (wcs:wcs-convert-world-xy-to-pix-xy wcs 0.0d0 0.01d0)
-        (decf xpix (wcs:wcs-2d-crpix1 wcs))
-        (decf ypix (wcs:wcs-2d-crpix2 wcs))
-        (setf n-vector (vector xpix ypix)))
+	  (wcs:wcs-position-angle-to-pixel-unit-vector wcs 0d0)
+	(setf n-vector (vector xpix ypix)))
       (multiple-value-bind (xpix ypix)
-          (wcs:wcs-convert-world-xy-to-pix-xy wcs 0.01d0 0.0d0)
-        (decf xpix (wcs:wcs-2d-crpix1 wcs))
-        (decf ypix (wcs:wcs-2d-crpix2 wcs))
-        (setf e-vector (vector xpix ypix))))
+	  (wcs:wcs-position-angle-to-pixel-unit-vector wcs 90d0)
+	(setf e-vector (vector xpix ypix))))
+    ;;
     (setf nl-vector (copy-seq n-vector))
     (setf el-vector (copy-seq e-vector))
-    ;; Normalize vectors
+    ;; Normalize vectors 
     (flet ((norm-vector (v factor)
              (let ((norm (sqrt (+ (expt (aref v 0) 2) (expt (aref v 1) 2)))))
                (when (zerop norm) (error "Zero norm in compass rose"))
@@ -276,11 +283,13 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
       (draw-arrow ctx (aref o-vector 0) (aref o-vector 1)
                   (aref n-vector 0) (aref n-vector 1)
 		  :line-width 3
-                  :color color :size 1.5)
+		  :head-angle (arrow-head-angle the-cr) 
+                  :color color :size (arrow-size the-cr))
       (draw-arrow ctx (aref o-vector 0) (aref o-vector 1)
                   (aref e-vector 0) (aref e-vector 1)
 		  :line-width 3
-                  :color color :size 1.5)
+		  :head-angle (arrow-head-angle the-cr)
+                  :color color :size (arrow-size the-cr))
       (write-text-with-outline ctx "N" (aref nl-vector 0) (aref nl-vector 1)
 			       :outline-color :very-light-gray
 			       :center t :character-height 2.0 :color color)
@@ -304,18 +313,25 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
     (declare (ignore pa-plane dot-plane plane-vec plane-len color))
     (flet ((make-axis-vec (pa dot)
              (multiple-value-bind (xp yp)
-                 (wcs:wcs-convert-world-xy-to-pix-xy wcs
-                    (sin (* (/ pi -180) pa)) (cos (* (/ pi 180) pa)))
-               (let* ((norm (/ 1d0 (+ 1d-10 (sqrt (+ (expt xp 2) (expt yp 2))))))
-                      (idot (sqrt (- 1.0001d0 (* dot dot))))
-                      (len (* (max 0.1 idot) axis-length))
-                      (vnorm (vector (* norm xp) (* norm yp))))
-                 (values vnorm len)))))
-      (multiple-value-setq (solar-vec solar-len) (make-axis-vec pa-solar dot-solar))
-      (multiple-value-setq (orbit-vec orbit-len) (make-axis-vec pa-orbit dot-orbit))
+		 (wcs:wcs-position-angle-to-pixel-unit-vector wcs pa)
+	       (let* ((vec (vector xp yp))
+		      ;; dot is cosine (line of sight); we want sin (on sky)
+		      (idot (sqrt (- 1.0001d0 (* dot dot))))
+		      ;; the length of vector in image
+		      (len (* (max 0.1 idot) ;; impose a minimum length
+			      axis-length))) ;; scale factor, including tilt of axis to LOS
+		 ;; return the unit vector and the length
+		 (values vec len)))))
+      
+      (multiple-value-setq (solar-vec solar-len)
+	(make-axis-vec pa-solar dot-solar))
+      (multiple-value-setq (orbit-vec orbit-len)
+	(make-axis-vec pa-orbit dot-orbit))
+      ;;
       (with-window (ctx 0 1 0 1)
         (with-settings (ctx :line-width weight)
           (flet ((draw-vector (vec len label-char col)
+		   ;; the small tick mark on the circle
                    (connect ctx
                             (vector (+ xc (* 0.9 axis-length (aref vec 0)))
                                     (+ xc (* 1.10 axis-length (aref vec 0))))
@@ -326,18 +342,20 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
                                (+ xc (* len (aref vec 0)))
                                (+ yc (* len (aref vec 1)))
 			       :line-width 2
-                               :color col :size  (arrow-size the-daxes))
+                               :color col
+			       :head-angle (arrow-head-angle the-daxes)
+			       :size  (arrow-size the-daxes))
 		   ;;
 		   (if (eql label-char #\SUN)
 			 (draw-sun-symbol ctx
-					  (+ xc (* 1.5 axis-length (aref vec 0)))
-					  (+ yc (* 1.5 axis-length (aref vec 1)))
+					  (+ xc (* 1.3 axis-length (aref vec 0)))
+					  (+ yc (* 1.3 axis-length (aref vec 1)))
 					  :blank-backd t
 					  :color col :size 1.2)
 		       ;;
 			 (write-text-with-outline ctx (string label-char)
-				     (+ xc (* 1.5 axis-length (aref vec 0)))
-				     (+ yc (* 1.5 axis-length (aref vec 1))) 
+				     (+ xc (* 1.3 axis-length (aref vec 0)))
+				     (+ yc (* 1.3 axis-length (aref vec 1))) 
 				     :outline-color :very-light-gray 
 				     :outline-width 4.0
 				     :color col :center t :character-height 1.5))))
@@ -391,7 +409,6 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
     (setf sigma-stretch (ecase scaling (:linear 5) (:log 3) (:sqrt 3))))
   (unless sigma-offset
     (setf sigma-offset (ecase scaling (:linear -3) (:log -0.5) (:sqrt -1.0))))
-
   (let* ((nx0 (round x0)) (ny0 (round y0))
          (hs (ash size -1))
          (nxmin (- nx0 hs)) (nxmax (+ nx0 hs))
@@ -400,7 +417,6 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
          (null-value -1e-30)
          (out-of-bounds-value -2e30)
          img medval sigma)
-
     ;; Read FITS data
     (cf:with-open-fits-file (fits-file ff)
       (cond
@@ -416,7 +432,6 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
                  ff nxmin nymin nxmax nymax
                  :null-value null-value
                  :out-of-bounds-value out-of-bounds-value)))
-
     (when img
       (float-utils:with-float-traps-masked (:inexact t :overflow t :underflow t :invalid t)
         ;; Compute median and sigma
@@ -434,7 +449,6 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
             (setf medval (fastmedian:fast-single-float-1d-array-median v))
             (setf sigma (* 0.5 (- (fastmedian:fast-single-float-1d-array-fraction v 0.84)
                                   (fastmedian:fast-single-float-1d-array-fraction v 0.16))))))
-
         ;; Apply scaling transformation
         (when (member scaling '(:log :sqrt))
           (loop for k below (array-total-size img)
@@ -470,8 +484,6 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
 			     do (setf (aref img  iy ix)
 				      (if dark cb2 cb1)))))
 
-
-	  
           ;; Replace bad values with val1
           (loop for k below (array-total-size img)
                 for pixval of-type single-float = (row-major-aref img k)

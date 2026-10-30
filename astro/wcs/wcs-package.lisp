@@ -72,6 +72,7 @@
    #:wcs-linear-p1 #:wcs-linear-x1
    #:make-tan-proj-wcs-from-field-info
    ;;
+   #:wcs-position-angle-to-pixel-unit-vector
    #:get-pixel-scale-for-wcs
    ;;
    ;; wcs-build.lisp

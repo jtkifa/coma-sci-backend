@@ -463,6 +463,7 @@ indices."
     ;; a little bit roundabout, going from ra,dec -> pix -> world
     (wcs-convert-pix-xy-to-world-xy wcs px py)))
 
+
  
  (defun wcs-convert-p-to-x (wcs p1) 
   "For wcs-linear wcs convert pixel value p1 to x1 valu
@@ -487,4 +488,31 @@ WARNING - this assumes that the first index is 1, not 0."
    (* (/ 1d0 (wcs-linear-cdelt1 wcs))
       (- x1 (wcs-linear-crval1 wcs)))))
 
-    
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun wcs-position-angle-to-pixel-unit-vector (wcs pa-degrees)
+    "Convert position angle to unit vector in pixel coordinates.
+  PA is measured in degrees from North towards East on the sky.
+  PA=0 points North, PA=90 points East.
+  World-XY is tangent plane with North=+Y, East=+X.
+  Returns (values dx dy) as a unit vector in pixel coordinates."
+   (declare (type wcs-2d wcs)
+	    (type real pa-degrees))
+   (let* ((pa-rad (* pa-degrees (/ pi 180.0d0)))
+          ;; World direction: x=East, y=North
+          ;; PA from North to East: world-x = sin(PA), world-y = cos(PA)
+          (world-dx (/ (sin pa-rad) 3600d0)) ;; 
+          (world-dy (/ (cos pa-rad) 3600d0)))
+     ;; Convert origin and offset point to pixels, take difference
+     (multiple-value-bind (px0 py0)
+         (wcs-convert-world-xy-to-pix-xy wcs 0.0d0 0.0d0)
+       (multiple-value-bind (px1 py1)
+           (wcs-convert-world-xy-to-pix-xy wcs world-dx world-dy)
+         (let* ((pix-dx (- px1 px0))
+                (pix-dy (- py1 py0))
+                (norm (sqrt (+ (* pix-dx pix-dx) (* pix-dy pix-dy)))))
+           (if (zerop norm)
+               (values 0.0d0 0.0d0)
+               (values (/ pix-dx norm) (/ pix-dy norm))))))))

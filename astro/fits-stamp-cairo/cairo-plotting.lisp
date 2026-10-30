@@ -373,28 +373,31 @@ Cairo substitutions for PGPLOT
       (cl-cairo2:arc dx dy (ctx-scale ctx (* 1.5 size)) 0.0d0 (* 2.0d0 pi) cr)
       (cl-cairo2:fill-path cr))))
 
-(defun draw-arrow (ctx x1 y1 x2 y2 &key (color :default) (size 1.0) (line-width nil))
+(defun draw-arrow (ctx x1 y1 x2 y2 &key (color :default) (size 1.0) (line-width nil) (head-angle 30))
   "Draw an arrow from (x1,y1) to (x2,y2) in world coordinates"
   (let* ((cr (ctx-cr ctx))
          (head-length (ctx-scale ctx (* 10.0 size)))  ; in device units, scaled
-         (head-angle (/ pi 6)))       ; 30 degrees
+         (head-angle (* head-angle (/ pi 180))))      ; 30 degrees by default
     (when line-width (set-line-width ctx line-width))
     (set-color ctx color)
     (multiple-value-bind (dx1 dy1) (world-to-device ctx x1 y1)
       (multiple-value-bind (dx2 dy2) (world-to-device ctx x2 y2)
-        ;; Draw the line
-        (cl-cairo2:new-path cr)
-        (cl-cairo2:move-to dx1 dy1 cr)
-        (cl-cairo2:line-to dx2 dy2 cr)
-        (cl-cairo2:stroke cr)
-        ;; Compute arrow head
+        ;; Compute arrow head geometry first
         (let* ((angle (atan (- dy2 dy1) (- dx2 dx1)))
                (a1 (+ angle pi (- head-angle)))
                (a2 (+ angle pi head-angle))
                (hx1 (+ dx2 (* head-length (cos a1))))
                (hy1 (+ dy2 (* head-length (sin a1))))
                (hx2 (+ dx2 (* head-length (cos a2))))
-               (hy2 (+ dy2 (* head-length (sin a2)))))
+               (hy2 (+ dy2 (* head-length (sin a2))))
+               ;; Base of arrowhead (midpoint of back edge)
+               (base-x (* 0.5 (+ hx1 hx2)))
+               (base-y (* 0.5 (+ hy1 hy2))))
+          ;; Draw the line to base of arrowhead
+          (cl-cairo2:new-path cr)
+          (cl-cairo2:move-to dx1 dy1 cr)
+          (cl-cairo2:line-to base-x base-y cr)
+          (cl-cairo2:stroke cr)
           ;; Draw filled arrow head
           (cl-cairo2:new-path cr)
           (cl-cairo2:move-to dx2 dy2 cr)
