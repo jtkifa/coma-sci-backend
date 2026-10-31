@@ -453,67 +453,20 @@ Cairo substitutions for PGPLOT
 ;;;; ============================================================
 
 (defun write-text (ctx text x y &key (color :default) (character-height 1.0)
-                                     (center nil) (angle 0.0) (font :default))
-  "Write text at world coordinates (x,y)"
+                                     (center nil) (angle 0.0) (font :default)
+                                     ;; Outline mode options
+                                     (outline nil) (outline-color :white) (outline-width 3.0)
+                                     ;; Blanking mode options
+                                     (blanking nil) (blanking-color :background))
+  "Write text at world coordinates (x,y).
+   CENTER - if true, center text on (x,y); otherwise (x,y) is the baseline origin.
+   ANGLE - rotation in degrees.
+   OUTLINE - if true, draw text with a stroked outline behind it.
+   OUTLINE-COLOR, OUTLINE-WIDTH - outline appearance (when OUTLINE is true).
+   BLANKING - if true, draw a filled background rectangle behind text.
+   BLANKING-COLOR - background color (when BLANKING is true).
+   Note: OUTLINE and BLANKING are mutually exclusive; OUTLINE takes precedence."
   (declare (ignore font))  ; TODO: implement font selection
-  (let* ((cr (ctx-cr ctx))
-         (font-size (ctx-scale ctx (* character-height 12.0))))  ; base font size, scaled
-    (set-color ctx color)
-    (cl-cairo2:set-font-size font-size cr)
-    (multiple-value-bind (dx dy) (world-to-device ctx x y)
-      (cl-cairo2:save cr)
-      (cl-cairo2:translate dx dy cr)
-      (when (not (zerop angle))
-        (cl-cairo2:rotate (- (* angle (/ pi 180.0))) cr))  ; negative for screen coords
-      (if center
-          ;; text-extents returns: x-bearing y-bearing width height x-advance y-advance
-          (multiple-value-bind (x-bearing y-bearing text-width text-height x-adv y-adv)
-              (cl-cairo2:text-extents text cr)
-            (declare (ignore x-bearing y-bearing x-adv y-adv))
-            (cl-cairo2:move-to (- (/ text-width 2)) (/ text-height 2) cr)
-            (cl-cairo2:show-text text cr))
-          (progn
-            (cl-cairo2:move-to 0.0d0 0.0d0 cr)
-            (cl-cairo2:show-text text cr)))
-      (cl-cairo2:restore cr))))
-
-
-(defun write-text-with-outline (ctx text x y &key (color :default) (outline-color :white)
-                                                     (character-height 1.0) (outline-width 3.0)
-                                                     (center nil) (angle 0.0))
-    "Write text with an outline/aura effect"
-    (let* ((cr (ctx-cr ctx))
-           (font-size (ctx-scale ctx (* character-height 12.0))))
-      (cl-cairo2:set-font-size font-size cr)
-      (multiple-value-bind (dx dy) (world-to-device ctx x y)
-        (cl-cairo2:save cr)
-        (cl-cairo2:translate dx dy cr)
-        (when (not (zerop angle))
-          (cl-cairo2:rotate (- (* angle (/ pi 180.0))) cr))
-        (let ((tx 0.0d0) (ty 0.0d0))
-          (when center
-            (multiple-value-bind (xb yb tw th xa ya) (cl-cairo2:text-extents text cr)
-              (declare (ignore xb yb xa ya))
-              (setf tx (- (/ tw 2)) ty (/ th 2))))
-          (cl-cairo2:move-to tx ty cr)
-          ;; Create text path
-          (cl-cairo2:text-path text cr)
-          ;; Stroke outline first (behind)
-          (set-color ctx outline-color)
-          (cl-cairo2:set-line-width (ctx-scale ctx outline-width) cr)
-          (cl-cairo2:set-line-join :round cr)  ; smooth corners
-          (cl-cairo2:stroke-preserve cr)
-          ;; Fill text on top
-          (set-color ctx color)
-          (cl-cairo2:fill-path cr))
-        (cl-cairo2:restore cr))))
-
-
-(defun write-blanked-text (ctx text x y &key (color :default) (character-height 1.0)
-                                             (center nil) (angle 0.0) (font :default)
-                                             (blanking-color :background))
-  "Write text with a filled background rectangle"
-  (declare (ignore font))
   (let* ((cr (ctx-cr ctx))
          (font-size (ctx-scale ctx (* character-height 12.0)))
          (padding (ctx-scale ctx 2.0)))
@@ -524,24 +477,62 @@ Cairo substitutions for PGPLOT
       (when (not (zerop angle))
         (cl-cairo2:rotate (- (* angle (/ pi 180.0))) cr))
       ;; Measure text - returns: x-bearing y-bearing width height x-advance y-advance
+      ;; y-bearing is the vertical distance from the baseline to the top edge
+      ;; of the glyph's bounding box (negative for glyphs above baseline).
       (multiple-value-bind (x-bearing y-bearing text-width text-height x-adv y-adv)
           (cl-cairo2:text-extents text cr)
         (declare (ignore x-adv y-adv))
-        (let* ((tx (if center (- (/ text-width 2)) 0.0))
-               (ty (if center (/ text-height 2) 0.0)))
-          ;; Draw background rectangle
-          (set-color ctx blanking-color)
-          (cl-cairo2:rectangle (+ tx x-bearing (- padding))
-                               (+ ty y-bearing (- padding))
-                               (+ text-width (* 2 padding))
-                               (+ text-height (* 2 padding))
-                               cr)
-          (cl-cairo2:fill-path cr)
-          ;; Draw text
-          (set-color ctx color)
-          (cl-cairo2:move-to tx ty cr)
-          (cl-cairo2:show-text text cr)))
+        ;; Compute text origin: tx, ty is where we move-to before drawing
+        ;; For centering, we position so the glyph bounding box center is at origin
+        (let* ((tx (if center (- (/ text-width 2)) 0.0d0))
+               (ty (if center (- (- y-bearing) (/ text-height 2)) 0.0d0)))
+          (cond
+            ;; Outline mode: stroke outline behind, fill text on top
+            (outline
+             (cl-cairo2:move-to tx ty cr)
+             (cl-cairo2:text-path text cr)
+             (set-color ctx outline-color)
+             (cl-cairo2:set-line-width (ctx-scale ctx outline-width) cr)
+             (cl-cairo2:set-line-join :round cr)
+             (cl-cairo2:stroke-preserve cr)
+             (set-color ctx color)
+             (cl-cairo2:fill-path cr))
+            ;; Blanking mode: draw background rectangle, then text
+            (blanking
+             (set-color ctx blanking-color)
+             (cl-cairo2:rectangle (+ tx x-bearing (- padding))
+                                  (+ ty y-bearing (- padding))
+                                  (+ text-width (* 2 padding))
+                                  (+ text-height (* 2 padding))
+                                  cr)
+             (cl-cairo2:fill-path cr)
+             (set-color ctx color)
+             (cl-cairo2:move-to tx ty cr)
+             (cl-cairo2:show-text text cr))
+            ;; Plain text
+            (t
+             (set-color ctx color)
+             (cl-cairo2:move-to tx ty cr)
+             (cl-cairo2:show-text text cr)))))
       (cl-cairo2:restore cr))))
+
+;;; Legacy wrappers for compatibility
+(defun write-text-with-outline (ctx text x y &key (color :default) (outline-color :white)
+                                                  (character-height 1.0) (outline-width 3.0)
+                                                  (center nil) (angle 0.0))
+  "Write text with an outline/aura effect. DEPRECATED: use write-text with :outline t"
+  (write-text ctx text x y :color color :character-height character-height
+                           :center center :angle angle
+                           :outline t :outline-color outline-color :outline-width outline-width))
+
+(defun write-blanked-text (ctx text x y &key (color :default) (character-height 1.0)
+                                             (center nil) (angle 0.0) (font :default)
+                                             (blanking-color :background))
+  "Write text with a filled background rectangle. DEPRECATED: use write-text with :blanking t"
+  (declare (ignore font))
+  (write-text ctx text x y :color color :character-height character-height
+                           :center center :angle angle
+                           :blanking t :blanking-color blanking-color))
 
 ;;;; ============================================================
 ;;;; Axis Box with Tick Marks

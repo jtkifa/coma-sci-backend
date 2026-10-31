@@ -66,7 +66,7 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
    (dot-orbit :initform 1d0 :initarg :dot-orbit :accessor dot-orbit)
    (dot-plane :initform 1d0 :initarg :dot-plane :accessor dot-plane)
    (axis-length :initform 0.07 :initarg :axis-length :accessor axis-length)
-   (xc :initform 0.13 :initarg :xc :accessor xc)
+   (xc :initform 0.15 :initarg :xc :accessor xc)
    (yc :initform 0.87 :initarg :yc :accessor yc)
    (arrow-size :initform 1.0 :initarg :arrow-size :accessor arrow-size)
    (arrow-head-angle :initform 20 :initarg :arrow-head-angle
@@ -322,7 +322,8 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
 			      axis-length))) ;; scale factor, including tilt of axis to LOS
 		 ;; return the unit vector and the length
 		 (values vec len)))))
-      
+
+       
       (multiple-value-setq (solar-vec solar-len)
 	(make-axis-vec pa-solar dot-solar))
       (multiple-value-setq (orbit-vec orbit-len)
@@ -330,14 +331,14 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
       ;;
       (with-window (ctx 0 1 0 1)
         (with-settings (ctx :line-width weight)
-          (flet ((draw-vector (vec len label-char col)
+          (flet ((draw-vector (vec len label-char col dotprod &optional (rbump 1.0))
 		   ;; the small tick mark on the circle
                    (connect ctx
-                            (vector (+ xc (* 0.9 axis-length (aref vec 0)))
+                            (vector (+ xc (* 0.99 axis-length (aref vec 0)))
                                     (+ xc (* 1.10 axis-length (aref vec 0))))
-                            (vector (+ yc (* 0.9 axis-length (aref vec 1)))
-                                    (+ yc (* 1.10 axis-length (aref vec 1))))
-                            :color :dark-gray :line-width 2)
+                            (vector (+ yc (* 0.99 axis-length (aref vec 1)))
+                                    (+ yc (* 1.15 axis-length (aref vec 1))))
+                            :color col :line-width 2)
                    (draw-arrow ctx xc yc
                                (+ xc (* len (aref vec 0)))
                                (+ yc (* len (aref vec 1)))
@@ -345,26 +346,57 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
                                :color col
 			       :head-angle (arrow-head-angle the-daxes)
 			       :size  (arrow-size the-daxes))
-		   ;;
-		   (if (eql label-char #\SUN)
-			 (draw-sun-symbol ctx
-					  (+ xc (* 1.3 axis-length (aref vec 0)))
-					  (+ yc (* 1.3 axis-length (aref vec 1)))
+		   ;; rbump optionally pushes one symbol out to avoid overlaps
+		   (let ((xsym (+ xc (* rbump 1.3 axis-length (aref vec 0))))
+			 (ysym (+ yc (* rbump 1.3 axis-length (aref vec 1))))
+			 (dx-sign (if (eql label-char #\sun) 0.016 0.01)))
+		     (if (eql label-char #\SUN)
+			 (draw-sun-symbol ctx 
+					  xsym ysym
 					  :blank-backd t
-					  :color col :size 1.2)
-		       ;;
-			 (write-text-with-outline ctx (string label-char)
-				     (+ xc (* 1.3 axis-length (aref vec 0)))
-				     (+ yc (* 1.3 axis-length (aref vec 1))) 
-				     :outline-color :very-light-gray 
-				     :outline-width 4.0
-				     :color col :center t :character-height 1.5))))
+					  :color col :size 1.0)
+			 
+			 (write-text-with-outline
+			  ctx (string label-char)
+			  xsym ysym
+			  :outline-color :very-light-gray 
+			  :outline-width 4.0
+			  :color col :center t :character-height 1.5))
+		     ;; decorate with a +/- after the symbol based on direction (dot prod)
+		     (write-text-with-outline
+		      ctx (if (plusp dotprod) "+" "-")
+		      (+ dx-sign xsym) ysym
+		      :outline-color :very-light-gray 
+		      :outline-width 4.0
+		      :color col :center t :character-height 1.5))))
+			 
 				   
 
             (draw-circle ctx xc yc axis-length :color :very-light-gray :line-width 6)
             (draw-circle ctx xc yc axis-length :color :dark-gray :line-width 2)
-            (draw-vector solar-vec solar-len #\SUN :black)
-            (draw-vector orbit-vec orbit-len #\v :red)))))))
+	    (let* ((solar-sun-angle ;; angle between the two arrows - if they're too close
+		     (* (/ 180 pi)  ;; we have to separate text markers in radius
+			(acos (min 1
+				   (max -1
+					(+ (* (aref orbit-vec 0) (aref solar-vec 0))
+					   (* (aref orbit-vec 1) (aref solar-vec 1))))))))
+		   ;; are any of the tags on the left or right, where the +/- makes them wider?
+		   (is-right  (< (min (abs (- pa-orbit -90.0))  (abs (- pa-solar -90.0)))
+				 10))
+		   (is-left  (< (min (abs (- pa-solar 90.0))  (abs (- pa-orbit 90.0)))
+				10))
+		   (sun-rbump (if is-left 1.15 1.0))  ;; the minus on the sun makes it big
+		   (v-rbump (if (> solar-sun-angle 12)
+				1.0 ;; no rescaling of distance if symbols don't overlap
+				(+ 1.25
+				   ;; if PA is around -90 or 90, then the symbols are wider becuse of +/-
+				   (cond (is-right 0.15) ;; need more room on right because sun sym bigger
+					 (is-left 0.22)
+					 (t 0.0))))))
+
+	      
+              (draw-vector solar-vec solar-len #\SUN :black dot-solar sun-rbump)
+              (draw-vector orbit-vec orbit-len #\v   :red   dot-orbit v-rbump))))))))
 
 (defmethod fill-orbit-direction-axes-using-comet-elem
     ((the-daxes orbit-direction-axes) (comet-elem orbital-elements:comet-elem)
