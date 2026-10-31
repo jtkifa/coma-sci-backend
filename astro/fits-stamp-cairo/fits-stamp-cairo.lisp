@@ -316,14 +316,14 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
 		 (wcs:wcs-position-angle-to-pixel-unit-vector wcs pa)
 	       (let* ((vec (vector xp yp))
 		      ;; dot is cosine (line of sight); we want sin (on sky)
-		      (idot (sqrt (- 1.0001d0 (* dot dot))))
+		      (idot (sqrt (max 0d0 (- 1d0 (* dot dot)))))
 		      ;; the length of vector in image
 		      (len (* (max 0.1 idot) ;; impose a minimum length
 			      axis-length))) ;; scale factor, including tilt of axis to LOS
 		 ;; return the unit vector and the length
 		 (values vec len)))))
 
-       
+
       (multiple-value-setq (solar-vec solar-len)
 	(make-axis-vec pa-solar dot-solar))
       (multiple-value-setq (orbit-vec orbit-len)
@@ -331,7 +331,7 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
       ;;
       (with-window (ctx 0 1 0 1)
         (with-settings (ctx :line-width weight)
-          (flet ((draw-vector (vec len label-char col dotprod &optional (rbump 1.0))
+          (flet ((draw-vector (vec len label-char col dotprod rbump show-sign)
 		   ;; the small tick mark on the circle
                    (connect ctx
                             (vector (+ xc (* 0.99 axis-length (aref vec 0)))
@@ -363,12 +363,13 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
 			  :outline-width 4.0
 			  :color col :center t :character-height 1.5))
 		     ;; decorate with a +/- after the symbol based on direction (dot prod)
-		     (write-text-with-outline
-		      ctx (if (plusp dotprod) "+" "-")
-		      (+ dx-sign xsym) ysym
-		      :outline-color :very-light-gray 
-		      :outline-width 4.0
-		      :color col :center t :character-height 1.5))))
+		     (when show-sign
+		       (write-text-with-outline
+			ctx (if (plusp dotprod) "+" "-")
+			(+ dx-sign xsym) ysym
+			:outline-color :very-light-gray 
+			:outline-width 4.0
+			:color col :center t :character-height 1.5)))))
 			 
 				   
 
@@ -380,23 +381,29 @@ Fits stamp routine for Cairo, almost identical to the PGPLOT version
 				   (max -1
 					(+ (* (aref orbit-vec 0) (aref solar-vec 0))
 					   (* (aref orbit-vec 1) (aref solar-vec 1))))))))
+		   ;; do we show the sign of the respective vectors?
+		   (show-sign-orbit t)
+		   (show-sign-sun (minusp dot-solar)) ;; only when solar vector is REALLY WEIRD
 		   ;; are any of the tags on the left or right, where the +/- makes them wider?
 		   (is-right  (< (min (abs (- pa-orbit -90.0))  (abs (- pa-solar -90.0)))
 				 10))
 		   (is-left  (< (min (abs (- pa-solar 90.0))  (abs (- pa-orbit 90.0)))
 				10))
-		   (sun-rbump (if is-left 1.15 1.0))  ;; the minus on the sun makes it big
+		   (sun-rbump (if (and is-left show-sign-sun) 1.15 1.0))  ;; the minus on the sun makes it big
 		   (v-rbump (if (> solar-sun-angle 12)
 				1.0 ;; no rescaling of distance if symbols don't overlap
 				(+ 1.25
 				   ;; if PA is around -90 or 90, then the symbols are wider becuse of +/-
-				   (cond (is-right 0.15) ;; need more room on right because sun sym bigger
-					 (is-left 0.22)
+				   (cond ((and is-right show-sign-sun) 0.10) ;; sun sign is extra fat
+					 (is-right 0.0)
+					 ((and is-left show-sign-sun) 0.22) ;; sun sign is extra fat
+					 (is-left 0.10)
 					 (t 0.0))))))
+		   
 
 	      
-              (draw-vector solar-vec solar-len #\SUN :black dot-solar sun-rbump)
-              (draw-vector orbit-vec orbit-len #\v   :red   dot-orbit v-rbump))))))))
+              (draw-vector solar-vec solar-len #\SUN :black dot-solar sun-rbump show-sign-sun)
+              (draw-vector orbit-vec orbit-len #\v   :red   dot-orbit v-rbump show-sign-orbit))))))))
 
 (defmethod fill-orbit-direction-axes-using-comet-elem
     ((the-daxes orbit-direction-axes) (comet-elem orbital-elements:comet-elem)
