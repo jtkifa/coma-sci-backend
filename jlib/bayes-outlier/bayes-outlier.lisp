@@ -64,9 +64,10 @@ The optimization is solely over xm, not f or s.
   (neval 0 :type (unsigned-byte 32))
   ;; how far we need to travel out in both directions from xm to get the corresponding 
   ;; delta-chisqr
-  (delta-x-plus  (make-array 4 :element-type 'double-float )
+  ;; 0d0 marks an excursion that could not be found (OK is then NIL)
+  (delta-x-plus  (make-array 4 :element-type 'double-float :initial-element 0d0)
    :type (simple-array double-float (*)))
-  (delta-x-minus (make-array 4 :element-type 'double-float )
+  (delta-x-minus (make-array 4 :element-type 'double-float :initial-element 0d0)
    :type (simple-array double-float (*)))
   ;; the relative likelihood that a given point is in the Gaussian vs
   ;; the outlier distribution
@@ -126,13 +127,16 @@ keywords are, but it is probably best not to do so."
 	 (s (float s 1d0))
 	 (f (float f 1d0))
 	 (neval-tot 0)
+	 ;; PROB-FUNC's evaluation ceiling; lowered while probing the optional
+	 ;; bounds so one evaluation is always left to restore RLVEC
+	 (eval-limit max-n-evaluations)
 	 (stage nil) ;; what stage of process we're in
 	 ;; our initial guess
 	 (xm-start  (float (or mean-guess 0d0) 1d0)))
 		    
     (declare (type (simple-array double-float (*)) xvec dxvec rlvec)
 	     (type double-float xmin xmax dx-med xm-start)
-	     (type (unsigned-byte 28) neval-tot max-n-evaluations))
+	     (type (unsigned-byte 28) neval-tot max-n-evaluations eval-limit))
     
     (flet ((prob-func (xm)
 	     (declare (type double-float xm)
@@ -140,9 +144,9 @@ keywords are, but it is probably best not to do so."
 	     (when (float-utils:double-float-nan-p xm)
 	       (error "Prob func got an invalid value"))
 	     (incf neval-tot)
-	     (when (> neval-tot max-n-evaluations)
-	       (error "Too many function evaluations by stage ~A:  ~A>~A" 
-		      stage neval-tot max-n-evaluations))	     
+	     (when (> neval-tot eval-limit)
+	       (error "Too many function evaluations by stage ~A:  ~A>~A"
+		      stage neval-tot eval-limit))	     
 	     (loop with likelihood of-type double-float = 0d0
 		   for i of-type (unsigned-byte 28) from 0
 		   for x  of-type double-float across xvec
@@ -207,23 +211,39 @@ keywords are, but it is probably best not to do so."
 	  ;; find the distance we need to go in direction (+/- 1) to
 	  ;; produce delta-chisqr
 	  ;;
-	  ;; The bracket must reach past the bound.  It used to be the data
-	  ;; spread (XMAX-XMIN), which for a few tightly clustered points is far
-	  ;; narrower than the error of the mean, so the root was never
-	  ;; bracketed and FINDROOT died with "Too many iterations".  It was
-	  ;; also mis-parenthesized as DIRECTION*(XM+SPREAD) rather than
-	  ;; XM+DIRECTION*SPREAD, which only worked on the minus side by
-	  ;; accident.  Search at least 20 median errors, and at least 1 unit.
+	  ;; The bracket used to be the data spread (XMAX-XMIN), which for a
+	  ;; few tightly clustered points is far narrower than the error of the
+	  ;; mean, so the root was never bracketed and FINDROOT died with "Too
+	  ;; many iterations".  It was also mis-parenthesized as
+	  ;; DIRECTION*(XM+SPREAD) rather than XM+DIRECTION*SPREAD.
+	  ;;
+	  ;; Instead, step outward from XM until the residual changes sign and
+	  ;; bisect only that last step, so we get the NEAREST crossing even
+	  ;; when the likelihood has secondary peaks (a wide fixed bracket can
+	  ;; jump past one).  Steps are half a median error for the first 40,
+	  ;; then double, so a far bound is still reached quickly.
 	  (flet ((find-chisqr-bound (delta-chisqr direction)
-		   (let ((width (max (- xmax xmin) (* 20d0 dx-med) 1d0)))
-		     (abs
-		      (- (bisection-root:findroot  ;; recall that deltaLogLik=-0.5 deltaChisqr
-			  (lambda (xm) (- (+ (- likelihood-final)
-					     (* delta-chisqr 0.5d0)) (prob-func xm)))
-			  xm-final (+ xm-final (* direction width)))
-			 xm-final)))))
+		   (flet ((resid (xm)  ;; recall that deltaLogLik=-0.5 deltaChisqr
+			    (declare (type double-float xm))
+			    (- (+ (- likelihood-final) (* delta-chisqr 0.5d0))
+			       (prob-func xm))))
+		     (loop with step of-type double-float = (max (* 0.5d0 dx-med) 1d-12)
+			   for nstep of-type fixnum from 1
+			   for inner of-type double-float = xm-final then outer
+			   for outer of-type double-float = (+ inner (* direction step))
+			   when (> nstep 200)
+			     do (error "Could not bracket the delta-chisqr=~A bound"
+				       delta-chisqr)
+			   when (<= (resid outer) 0d0)
+			     return (abs (- (bisection-root:findroot #'resid inner outer)
+					    xm-final))
+			   when (>= nstep 40)
+			     do (setf step (* 2d0 step))))))
 
 	    (setf stage "FINDING_CHISQR_BOUNDS")
+	    ;; keep one evaluation in hand for the RLVEC fix-up below, so a
+	    ;; budget exhausted by the optional bounds can't lose the estimate
+	    (setf eval-limit (max 0 (1- max-n-evaluations)))
 	    ;; Only the first (delta-chisqr=1) bounds give XM-ERR, so only they
 	    ;; may fail fatally.  The wider excursions just feed the OK
 	    ;; shape test; with very few points the outlier tail can keep the
@@ -237,11 +257,11 @@ keywords are, but it is probably best not to do so."
 		  for dx- = (if (zerop i)
 				(find-chisqr-bound delta-chisqr -1)
 				(ignore-errors (find-chisqr-bound delta-chisqr -1)))
-		  do (if (and dx+ dx-)
-			 (progn
-			   (setf (aref (outlier-result-delta-x-plus  outres) i) dx+)
-			   (setf (aref (outlier-result-delta-x-minus outres) i) dx-))
-			 (setf all-bounds-found nil)))
+		  ;; a missing side stays 0d0 (see DEFSTRUCT); a found side is kept
+		  do (when dx+ (setf (aref (outlier-result-delta-x-plus  outres) i) dx+))
+		     (when dx- (setf (aref (outlier-result-delta-x-minus outres) i) dx-))
+		     (unless (and dx+ dx-) (setf all-bounds-found nil)))
+	    (setf eval-limit max-n-evaluations)
 
 	    ;; one more evaluation to fix RLVEC, which is messed up by 
 	    ;; bisection-rootfind
