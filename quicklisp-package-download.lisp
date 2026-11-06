@@ -17,6 +17,7 @@
     :lparallel
     :closer-mop
     :cl-cairo2
+    :hu.dwim.zlib
     ))
 
 (load "quicklisp.lisp")

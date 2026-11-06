@@ -29,14 +29,15 @@ services:
       # Docker will initialize this volume with /data/support/sci-backend content from image
       - sci-backend-data:/data/support/sci-backend
       # Alter below diretory paths to reflect system you are spinning up on as FITS sources
-      - /data/staging:/data/staging
-      - /data/CDROMS/VALIDATED:/data/CDROMS/VALIDATED:ro
-      - /data/atlas/obj:/data/atlas/obj:ro
-      - /data/gemini:/data/gemini:ro
-      - /data/cfht:/data/cfht:ro
-      - /data/data2/Observing-Data/OBSERVATORIES/CFHT-MegaCam/CFHT_ARCHIVE:/data/data2/Observing-Data/OBSERVATORIES/CFHT-MegaCam/CFHT_ARCHIVE:ro
-      - /data/data2/Observing-Data/HALE_BOPP/reduced:/data2/Observing-Data/HALE_BOPP/reduced:ro
-      - /data/data2/Observing-Data/OBSERVATORIES/HCT-HFOSC:/data2/Observing-Data/OBSERVATORIES/HCT-HFOSC:ro
+      - /Users/daryl/Code/data/staging:/data/staging
+      # - /data/staging:/data/staging
+      # - /data/CDROMS/VALIDATED:/data/CDROMS/VALIDATED:ro
+      - /Users/daryl/Code/data/atlas/obj:/data/atlas/obj:ro
+      - /Users/daryl/Codedata/gemini:/data/gemini:ro
+      - /Users/daryl/Code/data/cfht:/data/cfht:ro
+      #- /data/data2/Observing-Data/OBSERVATORIES/CFHT-MegaCam/CFHT_ARCHIVE:/data/data2/Observing-Data/OBSERVATORIES/CFHT-MegaCam/CFHT_ARCHIVE:ro
+      #- /data/data2/Observing-Data/HALE_BOPP/reduced:/data2/Observing-Data/HALE_BOPP/reduced:ro
+      #- :/data/data2/Observing-Data/OBSERVATORIES/HCT-HFOSC:/data2/Observing-Data/OBSERVATORIES/HCT-HFOSC:ro
       # - /data/staging:/data/staging
       # - /data/CDROMS/VALIDATED:/data/CDROMS/VALIDATED
       # - /data/atlas/obj:/data/atlas/obj

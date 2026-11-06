@@ -1,4 +1,7 @@
-FROM ubuntu:24.04
+# x86_64 only: slalib.lisp has no Linux/arm64 Fortran int type, and
+# hu.dwim.zlib ships prebuilt CFFI specs only for x86_64 Linux.
+# On Apple Silicon this runs under emulation (matches docker-compose.yml).
+FROM --platform=linux/amd64 ubuntu:24.04
 
 # ------------------------------------------------------------------
 # DEFINITIONS OF IMPORTANT VARIABLES AND LOCATIONS  ########
@@ -43,7 +46,7 @@ ENV LISP_LISTENER_PORT=5055
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   wget build-essential curl git ca-certificates \
-  zlib1g-dev libcurl4-openssl-dev libssl-dev rsync
+  zlib1g-dev libffi-dev libcurl4-openssl-dev libssl-dev rsync
 RUN apt-get install -y gfortran libgfortran5  pgplot5 libfftw3-double3 libfftw3-single3 libfftw3-dev libcairo2-dev
 # Create symlinks for CFFI to find FFTW3 libraries
 RUN (ln -s /usr/lib/aarch64-linux-gnu/libfftw3.so /usr/lib/libfftw3.so || \
@@ -122,10 +125,17 @@ RUN git clone --depth 1 https://github.com/wakatara/simple-kepler-solver.git && 
 
 
 # ------------------------------------------------------------------
-# Compile and install cdsclient from CDS official source
+# Compile and install cdsclient
+# CDS FTP (cdsarc.cds.unistra.fr) is unreliable, so fetch the pristine
+# upstream tarball from Fedora's lookaside cache, verified by SHA-512.
+# TODO: vendor this tarball into the repo once CDS is reachable again.
 # ------------------------------------------------------------------
 WORKDIR /usr/local/src
-RUN wget http://cdsarc.cds.unistra.fr/ftp/pub/sw/cdsclient.tar.gz && \
+ARG CDSCLIENT_VER=4.07
+ARG CDSCLIENT_SHA512=9f1aeabf3714ba5c972c1da4cbbfc903635b511f2cf5ad6b53a9234cf3cfba74a06ba70d1d961620eaa57dfee7027479467689e9e03ceb032448281e6542cc9e
+RUN wget -T 30 -t 3 -O cdsclient.tar.gz \
+    https://src.fedoraproject.org/repo/pkgs/cdsclient/cdsclient-${CDSCLIENT_VER}.tar.gz/sha512/${CDSCLIENT_SHA512}/cdsclient-${CDSCLIENT_VER}.tar.gz && \
+  echo "${CDSCLIENT_SHA512}  cdsclient.tar.gz" | sha512sum -c - && \
   tar xzf cdsclient.tar.gz && \
   cd cdsclient-* && \
   ./configure --prefix=/usr/local && \
