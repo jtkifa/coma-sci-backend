@@ -202,24 +202,46 @@ keywords are, but it is probably best not to do so."
 				  :eps eps :neval-max max-n-evaluations)
 	(declare (ignorable neval))
 	(let ((likelihood-final (- (funcall #'prob-func xm-final)))
-	      (outres (make-outlier-result :f f :s s :n npts)))
+	      (outres (make-outlier-result :f f :s s :n npts))
+	      (all-bounds-found t))
 	  ;; find the distance we need to go in direction (+/- 1) to
 	  ;; produce delta-chisqr
+	  ;;
+	  ;; The bracket must reach past the bound.  It used to be the data
+	  ;; spread (XMAX-XMIN), which for a few tightly clustered points is far
+	  ;; narrower than the error of the mean, so the root was never
+	  ;; bracketed and FINDROOT died with "Too many iterations".  It was
+	  ;; also mis-parenthesized as DIRECTION*(XM+SPREAD) rather than
+	  ;; XM+DIRECTION*SPREAD, which only worked on the minus side by
+	  ;; accident.  Search at least 20 median errors, and at least 1 unit.
 	  (flet ((find-chisqr-bound (delta-chisqr direction)
-		   (* (- direction)
-		    (- xm-final
-		      (bisection-root:findroot  ;; recall that deltaLogLik=-0.5 deltaChisqr
-		       (lambda (xm) (- (+ (- likelihood-final) 
-					  (* delta-chisqr 0.5d0)) (prob-func xm)))
-		       xm-final (* direction (+ xm-final (- xmax xmin))))))))
-	    
+		   (let ((width (max (- xmax xmin) (* 20d0 dx-med) 1d0)))
+		     (abs
+		      (- (bisection-root:findroot  ;; recall that deltaLogLik=-0.5 deltaChisqr
+			  (lambda (xm) (- (+ (- likelihood-final)
+					     (* delta-chisqr 0.5d0)) (prob-func xm)))
+			  xm-final (+ xm-final (* direction width)))
+			 xm-final)))))
+
 	    (setf stage "FINDING_CHISQR_BOUNDS")
+	    ;; Only the first (delta-chisqr=1) bounds give XM-ERR, so only they
+	    ;; may fail fatally.  The wider excursions just feed the OK
+	    ;; shape test; with very few points the outlier tail can keep the
+	    ;; likelihood from ever rising that far, so a failure there marks
+	    ;; the result not-OK instead of losing the whole estimate.
 	    (loop for delta-chisqr across (outlier-result-delta-chisqr-vec outres)
 		  for i from 0
-		  for dx+ = (find-chisqr-bound delta-chisqr 1)
-		  for dx- = (find-chisqr-bound delta-chisqr -1)
-		  do (setf (aref (outlier-result-delta-x-plus  outres) i) dx+)
-		     (setf (aref (outlier-result-delta-x-minus outres) i) dx-))
+		  for dx+ = (if (zerop i)
+				(find-chisqr-bound delta-chisqr 1)
+				(ignore-errors (find-chisqr-bound delta-chisqr 1)))
+		  for dx- = (if (zerop i)
+				(find-chisqr-bound delta-chisqr -1)
+				(ignore-errors (find-chisqr-bound delta-chisqr -1)))
+		  do (if (and dx+ dx-)
+			 (progn
+			   (setf (aref (outlier-result-delta-x-plus  outres) i) dx+)
+			   (setf (aref (outlier-result-delta-x-minus outres) i) dx-))
+			 (setf all-bounds-found nil)))
 
 	    ;; one more evaluation to fix RLVEC, which is messed up by 
 	    ;; bisection-rootfind
@@ -236,12 +258,12 @@ keywords are, but it is probably best not to do so."
 		     npts))
 
 	    ;; is minimum OK - do all the chisqr bounds look gaussian?
-	    (loop with ok = t
+	    (loop with ok = all-bounds-found
 		  for dchisqr across (outlier-result-delta-chisqr-vec outres)
 		  for sigma = (sqrt dchisqr)
 		  for sigma0 = (outlier-result-xm-err outres)
 		  for dx+ across  (outlier-result-delta-x-plus  outres)
-		  for dx- across  (outlier-result-delta-x-plus  outres)
+		  for dx- across  (outlier-result-delta-x-minus outres)
 		  ;; require 10% agreement with expected scaling that 
 		  ;; dx increase by equal steps as delta_chisqr=1,4,9,16
 		  when (or (> (- 1.0  (/  dx+ sigma sigma0)) 0.1)
