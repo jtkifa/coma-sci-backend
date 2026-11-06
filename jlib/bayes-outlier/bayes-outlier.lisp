@@ -64,9 +64,10 @@ The optimization is solely over xm, not f or s.
   (neval 0 :type (unsigned-byte 32))
   ;; how far we need to travel out in both directions from xm to get the corresponding 
   ;; delta-chisqr
-  (delta-x-plus  (make-array 4 :element-type 'double-float )
+  ;; 0d0 marks an excursion that could not be found (OK is then NIL)
+  (delta-x-plus  (make-array 4 :element-type 'double-float :initial-element 0d0)
    :type (simple-array double-float (*)))
-  (delta-x-minus (make-array 4 :element-type 'double-float )
+  (delta-x-minus (make-array 4 :element-type 'double-float :initial-element 0d0)
    :type (simple-array double-float (*)))
   ;; the relative likelihood that a given point is in the Gaussian vs
   ;; the outlier distribution
@@ -126,13 +127,16 @@ keywords are, but it is probably best not to do so."
 	 (s (float s 1d0))
 	 (f (float f 1d0))
 	 (neval-tot 0)
+	 ;; PROB-FUNC's evaluation ceiling; lowered while probing the optional
+	 ;; bounds so one evaluation is always left to restore RLVEC
+	 (eval-limit max-n-evaluations)
 	 (stage nil) ;; what stage of process we're in
 	 ;; our initial guess
 	 (xm-start  (float (or mean-guess 0d0) 1d0)))
 		    
     (declare (type (simple-array double-float (*)) xvec dxvec rlvec)
 	     (type double-float xmin xmax dx-med xm-start)
-	     (type (unsigned-byte 28) neval-tot max-n-evaluations))
+	     (type (unsigned-byte 28) neval-tot max-n-evaluations eval-limit))
     
     (flet ((prob-func (xm)
 	     (declare (type double-float xm)
@@ -140,9 +144,9 @@ keywords are, but it is probably best not to do so."
 	     (when (float-utils:double-float-nan-p xm)
 	       (error "Prob func got an invalid value"))
 	     (incf neval-tot)
-	     (when (> neval-tot max-n-evaluations)
-	       (error "Too many function evaluations by stage ~A:  ~A>~A" 
-		      stage neval-tot max-n-evaluations))	     
+	     (when (> neval-tot eval-limit)
+	       (error "Too many function evaluations by stage ~A:  ~A>~A"
+		      stage neval-tot eval-limit))	     
 	     (loop with likelihood of-type double-float = 0d0
 		   for i of-type (unsigned-byte 28) from 0
 		   for x  of-type double-float across xvec
@@ -202,24 +206,62 @@ keywords are, but it is probably best not to do so."
 				  :eps eps :neval-max max-n-evaluations)
 	(declare (ignorable neval))
 	(let ((likelihood-final (- (funcall #'prob-func xm-final)))
-	      (outres (make-outlier-result :f f :s s :n npts)))
+	      (outres (make-outlier-result :f f :s s :n npts))
+	      (all-bounds-found t))
 	  ;; find the distance we need to go in direction (+/- 1) to
 	  ;; produce delta-chisqr
+	  ;;
+	  ;; The bracket used to be the data spread (XMAX-XMIN), which for a
+	  ;; few tightly clustered points is far narrower than the error of the
+	  ;; mean, so the root was never bracketed and FINDROOT died with "Too
+	  ;; many iterations".  It was also mis-parenthesized as
+	  ;; DIRECTION*(XM+SPREAD) rather than XM+DIRECTION*SPREAD.
+	  ;;
+	  ;; Instead, step outward from XM until the residual changes sign and
+	  ;; bisect only that last step, so we get the NEAREST crossing even
+	  ;; when the likelihood has secondary peaks (a wide fixed bracket can
+	  ;; jump past one).  Steps are half a median error for the first 40,
+	  ;; then double, so a far bound is still reached quickly.
 	  (flet ((find-chisqr-bound (delta-chisqr direction)
-		   (* (- direction)
-		    (- xm-final
-		      (bisection-root:findroot  ;; recall that deltaLogLik=-0.5 deltaChisqr
-		       (lambda (xm) (- (+ (- likelihood-final) 
-					  (* delta-chisqr 0.5d0)) (prob-func xm)))
-		       xm-final (* direction (+ xm-final (- xmax xmin))))))))
-	    
+		   (flet ((resid (xm)  ;; recall that deltaLogLik=-0.5 deltaChisqr
+			    (declare (type double-float xm))
+			    (- (+ (- likelihood-final) (* delta-chisqr 0.5d0))
+			       (prob-func xm))))
+		     (loop with step of-type double-float = (max (* 0.5d0 dx-med) 1d-12)
+			   for nstep of-type fixnum from 1
+			   for inner of-type double-float = xm-final then outer
+			   for outer of-type double-float = (+ inner (* direction step))
+			   when (> nstep 200)
+			     do (error "Could not bracket the delta-chisqr=~A bound"
+				       delta-chisqr)
+			   when (<= (resid outer) 0d0)
+			     return (abs (- (bisection-root:findroot #'resid inner outer)
+					    xm-final))
+			   when (>= nstep 40)
+			     do (setf step (* 2d0 step))))))
+
 	    (setf stage "FINDING_CHISQR_BOUNDS")
+	    ;; keep one evaluation in hand for the RLVEC fix-up below, so a
+	    ;; budget exhausted by the optional bounds can't lose the estimate
+	    (setf eval-limit (max 0 (1- max-n-evaluations)))
+	    ;; Only the first (delta-chisqr=1) bounds give XM-ERR, so only they
+	    ;; may fail fatally.  The wider excursions just feed the OK
+	    ;; shape test; with very few points the outlier tail can keep the
+	    ;; likelihood from ever rising that far, so a failure there marks
+	    ;; the result not-OK instead of losing the whole estimate.
 	    (loop for delta-chisqr across (outlier-result-delta-chisqr-vec outres)
 		  for i from 0
-		  for dx+ = (find-chisqr-bound delta-chisqr 1)
-		  for dx- = (find-chisqr-bound delta-chisqr -1)
-		  do (setf (aref (outlier-result-delta-x-plus  outres) i) dx+)
-		     (setf (aref (outlier-result-delta-x-minus outres) i) dx-))
+		  for dx+ = (if (zerop i)
+				(find-chisqr-bound delta-chisqr 1)
+				(ignore-errors (find-chisqr-bound delta-chisqr 1)))
+		  for dx- = (if (zerop i)
+				(find-chisqr-bound delta-chisqr -1)
+				(ignore-errors (find-chisqr-bound delta-chisqr -1)))
+		  ;; a missing side stays 0d0 (see DEFSTRUCT); a found side is kept
+		  do (when dx+ (setf (aref (outlier-result-delta-x-plus  outres) i) dx+))
+		     (when dx- (setf (aref (outlier-result-delta-x-minus outres) i) dx-))
+		     (unless (and dx+ dx-) (setf all-bounds-found nil)))
+	    (setf eval-limit max-n-evaluations)
 
 	    ;; one more evaluation to fix RLVEC, which is messed up by 
 	    ;; bisection-rootfind
@@ -236,12 +278,12 @@ keywords are, but it is probably best not to do so."
 		     npts))
 
 	    ;; is minimum OK - do all the chisqr bounds look gaussian?
-	    (loop with ok = t
+	    (loop with ok = all-bounds-found
 		  for dchisqr across (outlier-result-delta-chisqr-vec outres)
 		  for sigma = (sqrt dchisqr)
 		  for sigma0 = (outlier-result-xm-err outres)
 		  for dx+ across  (outlier-result-delta-x-plus  outres)
-		  for dx- across  (outlier-result-delta-x-plus  outres)
+		  for dx- across  (outlier-result-delta-x-minus outres)
 		  ;; require 10% agreement with expected scaling that 
 		  ;; dx increase by equal steps as delta_chisqr=1,4,9,16
 		  when (or (> (- 1.0  (/  dx+ sigma sigma0)) 0.1)
