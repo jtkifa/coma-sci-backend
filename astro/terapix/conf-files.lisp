@@ -20,17 +20,19 @@ make various configuration files for terapix programs
 (in-package terapix)
 
 
-;; possible ones that work with client:
-;;  vizier.u-strasbg.fr
-;;  vizier.nao.ac.jp
-;;  vizier.cfa.harvard.edu
-;;  cocat1.u-strasbg.fr - this one was down Wed Oct 5 2016
-;; 
+;; SCAMP's built-in VizieR client fetches
+;;    http://<server>/viz-bin/asu-tsv?...
+;; over plain HTTP and does not follow redirects. Status as of 2026-11-19:
+;;  vizier.nao.ac.jp       - WORKS (2MASS tested; PANSTARRS-1 returns no sources)
+;;  vizier.cds.unistra.fr  - 404 / "Page unavailable" for asu-tsv
+;;  vizier.cfa.harvard.edu - 301 redirect to https, which SCAMP can't follow
+;;  vizier.china-vo.org    - empty response
+;;  vizier.u-strasbg.fr, cocat1.u-strasbg.fr - no longer resolve (CDS moved
+;;                           to cds.unistra.fr)
+;; ps1, ps1-stack and refcat don't use this; they go through ASTRO-CATALOG
+;; and an LDAC file (see DO-NONLINEAR-ASTROMETRY).
 (defparameter *default-vizier-catalog-server*
-;  "vizier.u-strasbg.fr"
-;  "vizier.cfa.harvard.edu"
-  "cocat1.u-strasbg.fr"
-  )
+  "vizier.nao.ac.jp")
 
 
 (defun %make-scamp-conf-file-plot-section (checkplot-dev  output-dir)

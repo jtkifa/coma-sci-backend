@@ -122,7 +122,8 @@ Subtract a powerlaw coma  F(R)=BACKGROUND+NORM*SQRT(R^2+R_CORE^2)^EXPONENT
 	   ;; extension, or the first finite image extension		      
 	   (extension  (get-param "EXTENSION"))
 	   (output-fits (get-param "OUTPUT-FITS-FILE" :required t))
-	   (clobber (get-param "CLOBBER"))
+	   (clobber (get-param "CLOBBER" :satisfies 'is-json-boolean
+					 :satisfies-desc "must be true or false"))
 	   (filter-obj  (get-param "FILTER" :required t))
 	   (filter-type nil))
 

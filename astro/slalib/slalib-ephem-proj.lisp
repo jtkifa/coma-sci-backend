@@ -33,24 +33,26 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; slalib 6d pv array and a copy as scratch; units are km and km/s
   (pv (make-array 6 :element-type 'double-float)  
-      :type (simple-array double-float (6)))
+   :type (simple-array double-float (6)))
   (pvscr (make-array 6 :element-type 'double-float) 
-      :type (simple-array double-float (6)))
+   :type (simple-array double-float (6)))
+  ;;
   ;; unit direction vectors on sky, as #(RA-COS-DEC DEC)
-  (solar-2vec (make-array 2 :element-type 'double-float)  ;; pointing from sun to object (the R component of pv)
-             :type (simple-array double-float (2)))
+  (solar-2vec (make-array 2 :element-type 'double-float)  ;; pointing from sun to object
+   :type (simple-array double-float (2)))                 ;   (ie, the R component of pv)
   (orbit-2vec (make-array 2 :element-type 'double-float)  ;; pointing along orbit
-             :type (simple-array double-float (2)))
+   :type (simple-array double-float (2)))
   (plane-2vec  (make-array 2 :element-type 'double-float)  ;; solar cross plane
-             :type (simple-array double-float (2)))
+   :type (simple-array double-float (2)))
   (osolar-2vec (make-array 2 :element-type 'double-float)  ;; pointing to sun
-               :type (simple-array double-float (2)))
+   :type (simple-array double-float (2)))
+  ;;
   ;; the same unit vectors, but in 3 dimensional space of rvvec
-  (solar-3vec (make-array 3 :element-type 'double-float)  ;; pointing to sun
+  (solar-3vec (make-array 3 :element-type 'double-float) ;; pointing from sun, |pv[0],pv[1],pv[2]|
              :type (simple-array double-float (3)))
-  (orbit-3vec (make-array 3 :element-type 'double-float)  ;; pointing along orbit
+  (orbit-3vec (make-array 3 :element-type 'double-float) ;; pointing along orbit, |pv[3],pv[4],pv[4]|
              :type (simple-array double-float (3)))
-  (plane-3vec  (make-array 3 :element-type 'double-float)  ;; solar cross plane
+  (plane-3vec  (make-array 3 :element-type 'double-float) ;; solar cross plane - out of orbit dir
              :type (simple-array double-float (3)))
   ;; osolar-3vec is a vector in the orbital direction but perpendicular
   ;; to solar and plane vectors; ie, it is orbit-3vec minus the component in
@@ -58,7 +60,7 @@
   ;; triad
   (osolar-3vec (make-array 3 :element-type 'double-float)  ;; pointing to sun
                :type (simple-array double-float (3)))
-  ;; 3 vector from earth to comet - useful for dotting into others
+  ;; 3 unit vector from earth to comet - useful for dotting into others
   (ec-3vec (make-array 3 :element-type 'double-float)  
                :type (simple-array double-float (3)))
   ;; +ra and +dec 3vecs, orthogonal to ec-3vec
@@ -66,16 +68,16 @@
            :type (simple-array double-float (3)))
   (dec-3vec (make-array 3 :element-type 'double-float)  
            :type (simple-array double-float (3)))
-  ;; the dot products from earth to the three vectors
-  (solardot 0d0  :type double-float)
-  (orbitdot 0d0  :type double-float)
-  (planedot 0d0  :type double-float)
-  (osolardot 0d0 :type double-float)
+  ;; the dot products from earth to the three vectors 
+  (solardot 0d0  :type double-float)  ;; ec-3vec . solar-3vec
+  (orbitdot 0d0  :type double-float)  ;; ec-3vec . orbit-3vec
+  (planedot 0d0  :type double-float)  ;; ec-3vec . plane-3vec
+  (osolardot 0d0 :type double-float)  ;; ec-3vec . osolar-3vec ; 
   ;; position angles of the 2d unit vectors on sky, North to East
-  (solar-pa 0d0   :type double-float)
-  (orbit-pa 0d0   :type double-float)
-  (plane-pa 0d0   :type double-float)
-  (osolar-pa 0d0  :type double-float))
+  (solar-pa 0d0   :type double-float) ;; pa of solar-2vec
+  (orbit-pa 0d0   :type double-float) ;; pa of orbit-2vec
+  (plane-pa 0d0   :type double-float) ;; pa of plane-2vec
+  (osolar-pa 0d0  :type double-float));; pa of osolar-2vec 
 
 
 (defun generate-orbit-dirs-for-comet-elem-for-observatory

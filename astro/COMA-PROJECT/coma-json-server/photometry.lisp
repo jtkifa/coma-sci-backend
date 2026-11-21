@@ -729,7 +729,7 @@ A full response might look like:
   (let ((apertures (or (gethash "APERTURES" phot-request)
 		       *default-apertures-for-photometry*))
 	(id (or (gethash "ID" phot-request) "NONE"))
-	(gain (instrument-id:get-gain-for-fits fits-file))
+	(gain nil) ;; read from the fits file after the input checks
 	(tune-position (gethash "TUNE-POSITION" phot-request))
 	(pixel-scale (if wcs (wcs:get-pixel-scale-for-wcs wcs)))
 	(background-radius (gethash "BACKGROUND-RADIUS" phot-request))
@@ -746,6 +746,10 @@ A full response might look like:
 	;;
 	(setf (gethash "ID" phot-result) id)
 	;;
+	(when (not (is-json-boolean tune-position))
+	  (return-with-error
+	   (format nil "TUNE-POSITION=~S must be true or false" tune-position)))
+	;;
 	(when (not
 	       (and (vectorp apertures)
 		    (every 'realp apertures)
@@ -755,8 +759,11 @@ A full response might look like:
 	      apertures)
 	(when (not inst) (return-with-error "Could not identify instrument type in fits-file"))
 	;;
+	(setf gain (or (ignore-errors (instrument-id:get-gain-for-fits fits-file))
+		       (return-with-error "Could not read gain for fits-file")))
+	;;
 	(let ((orbphot-result
-		(orbphot:do-auto-phot fits-file  
+		(orbphot:do-auto-phot fits-file
 		  :extension extension
 		  :photometry-type :aperture
 		  :phot-apertures/arcsec (coerce apertures 'list)
@@ -853,6 +860,10 @@ A full response might look like:
 	;;
 	(setf (gethash "ID" phot-result) id)
 	;;
+	(when (not (is-json-boolean tune-position))
+	  (return-with-error
+	   (format nil "TUNE-POSITION=~S must be true or false" tune-position)))
+	;;
 	(when (not
 	       (and (vectorp apertures)
 		    (every 'realp apertures)
@@ -938,7 +949,11 @@ A full response might look like:
 	  (return-with-error
 	   (format nil "FITTING-REGION-RADIUS=~A (arcsec) is not a valid number in [1,100]"
 		   fitting-region/arcsec)))
-			
+	;;
+	(when (not (is-json-boolean round))
+	  (return-with-error
+	   (format nil "ROUND=~S must be true or false" round)))
+
 	(let* ((imsec (or
 		       (ignore-errors (cf:read-image-section fits-file :extension extension))
 		       (return-with-error "Could not read image section in fits file.")))
@@ -1121,6 +1136,10 @@ A full response might look like:
 	       (return-from retblock phot-result)))
 	;;
 	(setf (gethash "ID" phot-result) id)
+	;;
+	(when (not (is-json-boolean tune-position))
+	  (return-with-error
+	   (format nil "TUNE-POSITION=~S must be true or false" tune-position)))
 	;;
 	(let* ((imsec (or
 		       (ignore-errors (cf:read-image-section fits-file :extension extension))

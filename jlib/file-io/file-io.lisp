@@ -27,6 +27,7 @@
    #:full-namestring/no-symlink-expand 
    #:make-filename-absolute-using-default-pathname-defaults
    #:with-lock-file
+   #:write-object-to-file
    ))
 
 
@@ -461,3 +462,8 @@ for recursive use of lockfiles, to prevent locks inside locks."
 	     (unwind-protect
 		  (%run-the-body)
 	       (delete-file %the-filename)))))))
+
+(defun write-object-to-file (object file &key (if-exists :error))
+  "Write a Lisp OBJECT (any printable thing) to FILE, respecting IF-EXISTS."
+  (with-open-file (s file :direction :output :if-exists if-exists)
+    (write object :stream s)))

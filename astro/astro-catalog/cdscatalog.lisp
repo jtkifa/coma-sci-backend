@@ -10,7 +10,7 @@ For catalog list see
 Place the following into your Lisp configuration:
  ;; configure astro-catalog
  (pconfig:set-config "ASTRO-CATALOG:VIZQUERY-PROGRAM" "/opt/local/bin/vizquery")
- (pconfig:set-config "ASTRO-CATALOG:VIZQUERY-SITE" "cfa")
+ (pconfig:set-config "ASTRO-CATALOG:VIZQUERY-SITE" "adac")
 
 
 the main function is:
@@ -69,10 +69,13 @@ It could probably also give a list of pointings at once.
   (or (pconfig:get-config "ASTRO-CATALOG:VIZQUERY-SITE")
       "adac")) ;; seems to be working
   
-;; series of several top sites - put adac and cds first because they seem to be
-;; working
-(defparameter *vizquery-site-list* '("adac"  "cds" "cadc" "cfa" "ukirt"
-				     "cambridge" "beijing" "moscow"))
+;; series of sites to try in order (names as in vizquery's own site table).
+;; As of 2026-11-19 only adac (vizier.nao.ac.jp) works; the rest are kept as
+;; last resorts: cds (old u-strasbg.fr hostname), cfa (redirects to https),
+;; cambridge (404), ukirt, bejing, moscow (unreachable).  cadc was removed
+;; because it hangs until *VIZQUERY-TIMEOUT*.  Note vizquery spells it "bejing".
+(defparameter *vizquery-site-list* '("adac" "cds" "cfa" "ukirt"
+				     "cambridge" "bejing" "moscow"))
   
 
 (defparameter *vizquery-timeout* 60)

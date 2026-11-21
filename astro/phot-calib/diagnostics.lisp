@@ -15,13 +15,43 @@ Some diagnostics:
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; plotting with cl-cairoplot
+
+(defun open-plot-device (device filename &key (size 600) (aspect 1)
+					      (title "phot-calib"))
+  "Open a cl-cairoplot device.  DEVICE is a file type (:PDF :PS :SVG
+:PNG), which needs FILENAME, or a screen device (:GTK, or the old PGPLOT
+names :X11 :XWINDOW :XW), which opens a window called TITLE."
+  (case device
+    ((:gtk :x11 :xwindow :xw)
+     (cairoplot:open-device :gtk title :size size :aspect aspect))
+    ((:pdf :ps :svg :png)
+     (unless filename
+       (error "Plot device ~S needs a FILENAME." device))
+     (cairoplot:open-device device filename :size size :aspect aspect))
+    (t
+     (error "Unknown plot device ~S: use :PDF :PS :SVG :PNG or :GTK."
+	    device))))
+
+(defun subscripted (&rest parts)
+  "Text runs for cl-cairoplot from PARTS, strings in which a list
+ (\"text\") is a subscript."
+  (loop for part in parts
+	collect (if (consp part)
+		    (list (first part) :scale 0.6 :rise -0.25)
+		    part)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun plot-calibration-match-file
-    (match-csv-file &key (device :x11) (filename nil)
+    (match-csv-file &key (device :gtk) (filename nil)
 		      (zp-mag nil) ;; if given plot it
 		      (dmag-span 0.25) (mag-min nil) (mag-max nil)
 		      (toplabel nil))
   "Plot a file with fields 
- OBJ_ID OBJ_MAG OBJ_MAG_ERR   CAT_ID CAT_MAG CAT_MAG_ERR DMAG DMAG_ERR  RA DEC"
+ OBJ_ID OBJ_MAG OBJ_MAG_ERR   CAT_ID CAT_MAG CAT_MAG_ERR DMAG DMAG_ERR  RA DEC
+
+DEVICE is :PDF, :PS, :SVG or :PNG, written to FILENAME, or :GTK (or :X11)
+for a window."
   (let* ((h (csv-read:read-csv-headers/columns-from-file match-csv-file
 							 :comment-char #\#))
 	 (catmag (gethash "CatMag" h)) 
@@ -30,46 +60,50 @@ Some diagnostics:
 	 (dmag-med (stats:median-of-elements dmag))
 	 (mag-min (or mag-min (+ -0.5 (stats:min-of-elements catmag))))
 	 (mag-max (or mag-max (+ +0.5 (stats:max-of-elements catmag))))
+	 (dotted '(1.5 3))
 	 (p nil))
 
     (unwind-protect ;; if this bombs make sure we close device,
 		    ;; because this might be run in an automated loop
-	 (progn (setf p (pgplot:open-device device :filename filename))
-		;; top hi-res pane
-		(flet ((make-plot (mspan iy label &key (labels-bottom t))
-			 (pgplot:set-current-pane p  1 1 iy 2)
-			 (pgplot:set-window p mag-min mag-max (- dmag-med mspan) (+ dmag-med mspan))
-			 (pgplot:box p :size 1.5 :x-num-labels-bottom labels-bottom)
-			 
-			 (pgplot:with-window (p 0 1 0 1)
-			   (pgplot:write-text p label 0.8 0.9 :character-height 1.2)
-			   ;;
-			   (when labels-bottom ;; only bottom panel
-			     (pgplot:draw-plot-legend
-			      p 0.6 0.2
-			      `((,(format nil "Median Mag ~,3F" dmag-med)
-				 :line :line-style :dotted :color :light-gray)
-				(,(format nil "ZP Mag ~,3F" (or zp-mag "NA"))
-				 :line :line-style :dotted :color :red))
-			      :draw-box t :character-height 0.9)))
-			 
-			 (when labels-bottom (pgplot:xlabel p "Reference Magnitude"))
-			 (pgplot:ylabel p "M\\dref\\u-M\\dimage\\u" :x-offset -0.03)
-			 (when toplabel (pgplot:toplabel p toplabel))
-			 (pgplot:points p catmag dmag :filled-circle)
-			 (pgplot:errorbars p catmag dmag dmag-err :direction :y)
-			 
-			 (when zp-mag 
-			   (pgplot:connect p (vector mag-min mag-max) (vector zp-mag zp-mag) 
-					   :line-style :dotted :color :red))
-			 (pgplot:connect p (vector mag-min mag-max) (vector dmag-med dmag-med) 
-					 :line-style :dotted :color :light-gray)))
-		  ;;
-		  (make-plot  dmag-span       1  "Zoom view"   :labels-bottom t)
-		  (make-plot  (* 7 dmag-span) 2  "Broad view"  :labels-bottom nil)))
-
-      (progn
-	(when filename (pgplot:close-device p))))))
+	 (progn
+	   (setf p (open-plot-device device filename :size 600 :aspect 1
+						     :title (or toplabel "Calibration")))
+	   (let ((panels (cairoplot:make-panel-grid p 2 1 :left 0.15 :right 0.95
+							  :bottom 0.09 :top 0.93
+							  :hspace 0)))
+	     (flet ((make-plot (vp mspan label &key (labels-bottom t))
+		      (cairoplot:set-window vp mag-min mag-max
+					    (- dmag-med mspan) (+ dmag-med mspan))
+		      (when zp-mag 
+			(cairoplot:with-style (vp :color :red :dash dotted)
+			  (cairoplot:plot-line vp mag-min zp-mag mag-max zp-mag)))
+		      (cairoplot:with-style (vp :color :light-gray :dash dotted)
+			(cairoplot:plot-line vp mag-min dmag-med mag-max dmag-med))
+		      (cairoplot:plot-error-bars vp catmag dmag :yerr dmag-err
+								:cap-size 0)
+		      (cairoplot:plot-points vp catmag dmag :marker :filled-circle)
+		      (cairoplot:draw-box
+		       vp
+		       :numbers (if labels-bottom '(:bottom :left) '(:left))
+		       :omit-end-numbers (if labels-bottom nil '(:y-low))
+		       :x-label (when labels-bottom "Reference Magnitude")
+		       :y-label (subscripted "M" '("ref") " - M" '("image"))
+		       :title (unless labels-bottom toplabel))
+		      (cairoplot:draw-panel-label vp label :position :upper-right)
+		      (when labels-bottom ;; only bottom panel
+			(cairoplot:draw-legend
+			 vp
+			 `((,(format nil "Median Mag ~,3F" dmag-med)
+			    :line t :dash ,dotted :color :light-gray)
+			   (,(if zp-mag
+				 (format nil "ZP Mag ~,3F" zp-mag)
+				 "ZP Mag NA")
+			    :line t :dash ,dotted :color :red))))))
+	       ;;
+	       (make-plot (aref panels 1 0) dmag-span       "Zoom view"  :labels-bottom t)
+	       (make-plot (aref panels 0 0) (* 7 dmag-span) "Broad view" :labels-bottom nil))))
+      ;;
+      (when p (cairoplot:close-device p)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -1018,13 +1018,12 @@ Keys KEY.COMMENT KEY.PART1 KEY.PART2"))
     (fits-file nxmin nymin nxmax nymax
      &key (out-of-bounds-value 0.0) null-value (extension 1))
   "Read pixels (one-based indices) in range [nxmin:nxmax,nymin,nymax] into
-a single float iamge.  If the array bounds are out of bounds, then fill
+a single float image.  If the array bounds are out of bounds, then fill
 pixels with OUT-OF-BOUNDS-VALUE.  Returns
   (VALUES FLOAT-ARRAY FLAG-BITARRAY WCS)
 where FLOAT-ARRAY is an single float image array, BIT-ARRAY
 is 1 where there is a valid image pixel, WCS is the world coordinate
 system (one-based indices) for this subimage."
-  
   (let* (;; can't use NAXIS1,2 headers because of commpressed images, so use imsize
 	 (imsize (if (typep fits-file 'fits-file )
 		     (fits-file-current-image-size fits-file)
@@ -1047,21 +1046,18 @@ system (one-based indices) for this subimage."
 			       :initial-element 0)))
     ;;
     ;; only read image when some of it is in bounds
-    (when (and (or (<= 1 nxmin naxis1)
-                   (<= 1 nxmax naxis1))
-               (or (<= 1 nymin naxis2)
-                   (<= 1 nymax naxis2)))
+    (when (and (and (<= nxmin naxis1)
+		    (>= nxmax 1))
+	       (and (<= nymin naxis2)
+		    (>= nymax 1)))
       (let* ((imsec (cf:read-image-section 
                      fits-file
                      :type :single-float
 		     :null-value null-value
                      :fp (vector nx1 ny1)
                      :lp (vector nx2 ny2)))
-             (arrin (cf:image-section-data imsec))
-	     (wcs-whole-image (cf:read-wcs fits-file))
-	     (wcs (when wcs-whole-image
-		    (%shift-wcs-for-fp wcs-whole-image
-				       (vector nxmin nymin)))))
+             (arrin (cf:image-section-data imsec)))
+	     
 	;;
 	(declare (type (simple-array single-float (* *)) arrin arrout))
 	;;
@@ -1075,6 +1071,13 @@ system (one-based indices) for this subimage."
 			    (aref arrin iy ix))
 		      (setf (aref bitarray
 				  (+ iy iyoff) (+ ix ixoff))
-			    1)))
-	
-	(values arrout bitarray wcs)))))
+			    1)))))
+
+    ;; make a shifted wcs
+    (let* ((wcs-whole-image (cf:read-wcs fits-file))
+	   (wcs (when wcs-whole-image
+		  (%shift-wcs-for-fp wcs-whole-image
+				     (vector nxmin nymin)))))
+      ;; if totally out of bounds, no image was read, and the initial value
+      ;; with bitpix=[0], arrout=[out-of-bounds-value] is returned
+      (values arrout bitarray wcs))))

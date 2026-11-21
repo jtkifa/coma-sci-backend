@@ -300,7 +300,14 @@ row index.
 |#
 
 ;; --- Foreign System Function Bindings ---
-(cffi:defcfun ("open" posix-open) :int (pathname :string) (flags :int) (mode :int))
+;; open(2) is variadic: int open(const char *path, int flags, ...).  It
+;; must be declared with &REST so that MODE is passed as a vararg.  On
+;; darwin-arm64 varargs go on the stack rather than in registers, so a
+;; fixed 3-arg declaration makes open() read garbage for MODE (files got
+;; created with mode 000).
+(cffi:defcfun ("open" %posix-open) :int (pathname :string) (flags :int) &rest)
+(defun posix-open (pathname flags mode)
+  (%posix-open pathname flags :int mode))
 (cffi:defcfun ("ftruncate" posix-ftruncate) :int (fd :int) (length :long))
 (cffi:defcfun ("mmap" posix-mmap) :pointer (addr :pointer) (length :size) (prot :int) (flags :int) (fd :int) (offset :long))
 (cffi:defcfun ("munmap" posix-munmap) :int (addr :pointer) (length :size))

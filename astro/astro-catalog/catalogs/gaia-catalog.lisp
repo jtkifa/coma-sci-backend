@@ -18,9 +18,9 @@
 
 ;; gaia is not at all sites
 (defparameter *gaia-vizquery-sites*
-  '("cds" ;; canonical, France
-    "cn"  ;; fast
-    "jp"  ;; has catalog, equal to 'adac'
+  '("jp"  ;; has catalog, equal to 'adac'; the only working site as of 2026-11
+    "cds" ;; canonical, France (old u-strasbg.fr hostname no longer resolves)
+    "cn"  ;; was fast; unreachable as of 2026-11
     #+nil "cadc"))  ;; has been timing out
 
 ;; the different catalogs have slightly different keys

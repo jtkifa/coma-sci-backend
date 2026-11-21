@@ -4,7 +4,7 @@
 			     astro-coords three-vector sky-project 
 			     phot-transforms bayes-outlier bootstrap 
 			     instrument-id
-			     pgplot ;; for diagnostics
+			     cl-cairoplot ;; for diagnostics
 			     csv-read)
   :components 
   ((:file "phot-calib-package" :depends-on ())

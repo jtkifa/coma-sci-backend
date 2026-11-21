@@ -50,7 +50,7 @@
 	     (:file "get-orbit-xyz" :depends-on ("coma-json-package" "utils" "dispatcher"))
 	     ;;
 	     (:file "calib-wcs" :depends-on ("coma-json-package" "utils" "dispatcher"))
-	     (:file "calib-phot" :depends-on ("coma-json-package" "utils" "dispatcher"))
+	     (:file "calib-phot" :depends-on ("coma-json-package" "utils" "dispatcher" "calib-wcs"))
 	     (:file "calib-qualities" :depends-on ("coma-json-package" "utils" "dispatcher"))
 	     (:file "describe-fits-calib" :depends-on ("coma-json-package" "utils" "dispatcher"))
 	     (:file "legacy-zeropoint" :depends-on ("coma-json-package" "utils" "dispatcher"))

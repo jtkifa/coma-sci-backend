@@ -182,22 +182,6 @@ where PSFs are ill determined.
 		       pcobj-pair-list))
 		(dmag-vec (stats:z-score-clip-data dmag-vec-raw :cutoff 1d0)))
 
-	   #+nil ;; plot a histogram as a reality check
-	   (let ((med-raw (stats:median-of-elements dmag-vec-raw))
-		 (med     (stats:median-of-elements dmag-vec))	
-		 (mode    (stats:mode-of-elements dmag-vec-raw :fwindow 0.2))
-		 (windowspan 1)
-		 (p (pgplot:open-device :x11)))
-	     (pgplot:hist p  dmag-vec-raw :xleft (- med windowspan) :xright (+ med windowspan)) 
-	     (pgplot:hist p  dmag-vec :xleft (- med windowspan) :xright (+ med windowspan)
-			  :set-window nil :color :red)
-	     (pgplot:connect p (vector med-raw med-raw) (vector 0 10000) :line-style :dotted)
-	     (pgplot:connect p (vector med med) (vector 0 10000) :line-style :dotted
-			     :color :red)
-	     (pgplot:connect p (vector mode mode) (vector 0 10000) :line-style :dotted
-						     :color :green)
-	     (pgplot:box p))
-
 	   (multiple-value-bind (dmag dmag-err)
 	       (bootstrap:resample-one-sided-median-dev/double-float
 		dmag-vec

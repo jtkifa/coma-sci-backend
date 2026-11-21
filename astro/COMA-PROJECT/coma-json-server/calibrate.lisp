@@ -13,13 +13,29 @@
                  "WCS-NSTARS-MIN": 8,
                  "WCS-RMS-MAX": 0.5,  // arcsec
                  "WCS-FIT-NORDER": 1,  // order of fit (1=linear)
-                 "WCS-ALLOW-SATURATED": true, 
+                 "WCS-ALLOW-SATURATED": true,
+                 "WCS-POSITION-MAXERR": 2.0, // SCAMP POSITION_MAXERR, arcmin
+                 // WCS-KITCHEN-SINK tries the (catalog, position-maxerr)
+                 // sequence in *WCS-KITCHEN-SINK-SEQUENCE* (refcat 0.2',1',3',
+                 // then ps1-stack 1',3') until a fit meets WCS-NSTARS-MIN and
+                 // WCS-RMS-MAX. ps1-stack is skipped south of dec
+                 // *PS1-DEC-MIN* (-30). WCS-CATALOG and WCS-POSITION-MAXERR
+                 // are ignored when it is on. Each try is reported in
+                 // WCS-ATTEMPTS.
+                 "WCS-KITCHEN-SINK": false,
 
 
                  "PHOT-CALIB":true,
                  "PHOT-CATALOG":"refcat", // "refcat" "ps1" "ps1-stack" "sdss" - refcat is LOCAL
                  "REDO-PHOT-CALIB":false, // force redo if done
                  "PHOT-CALIB-NSTARS-MIN": 8,
+                 // PHOT-KITCHEN-SINK tries *PHOT-KITCHEN-SINK-SEQUENCE*
+                 // (refcat, ps1, ps1-stack stars only, ps1-stack allowing
+                 // galaxies as standards) until a calibration is OK with
+                 // PHOT-CALIB-NSTARS-MIN stars. PS1 catalogs are skipped south
+                 // of dec *PS1-DEC-MIN* (-30). PHOT-CATALOG is ignored when
+                 // it is on. Each try is reported in PHOT-ATTEMPTS.
+                 "PHOT-KITCHEN-SINK": false,
 
                  "COMPUTE-IMAGE-QUALITIES":true,
                  "REDO-QUALITIES":false,
@@ -32,7 +48,7 @@
 ;; returns ONE-BASED fits extension
 (defun %figure-out-fits-extension-for-calib (fits-file)
   (let ((inst (instrument-id:identify-instrument fits-file)))
-    (or (if (typep fits-file 'instrument-id:onechip)
+    (or (if (typep inst 'instrument-id:onechip)
 	    (instrument-id:get-image-extension-for-onechip-fits fits-file :onechip inst))
        (cf:with-open-fits-file (fits-file ff)
 	 (loop for iext from 1 to  (cf:fits-file-num-hdus ff)
@@ -47,6 +63,21 @@
 	       do (return iext))))))
 
 
+;; return the 1-based HDU number if EXTENSION (a name or a 1-based index)
+;; refers to a nonempty 2D image in FITS-FILE, else NIL
+(defun %validate-calib-extension (fits-file extension)
+  (when (or (stringp extension)
+	    (and (integerp extension) (<= 1 extension 1023)))
+    (ignore-errors
+     (cf:with-open-fits-file (fits-file ff)
+       (cf:move-to-extension ff extension :throw-error t)
+       (let ((size  (cf:fits-file-current-image-size ff))
+	     (ndims (cf:fits-file-current-image-ndims ff)))
+	 (when (and (eql ndims 2)
+		    (plusp (aref size 0))
+		    (plusp (aref size 1)))
+	   (cf:fits-file-current-hdu-num ff)))))))
+
 (defun %calib-cleanup (fits-file)
   (delete-dir-for-fits-file fits-file)) ;; in utils.lisp
 
@@ -57,27 +88,50 @@
 	  ;; extension, or the first finite image extension
 	  (extension   (get-param "EXTENSION"))
 	  ;;
-	  (wcs-fit-p (get-param "WCS-FIT" :default t))
+	  (wcs-fit-p (get-param "WCS-FIT" :default t
+				:satisfies 'is-json-boolean
+				:satisfies-desc "must be true or false"))
 	  (wcs-catalog (get-param "WCS-CATALOG" :default "refcat"))
-	  (redo-wcs-fit-p (get-param "REDO-WCS-FIT" :default nil))
+	  (redo-wcs-fit-p (get-param "REDO-WCS-FIT" :default nil
+				     :satisfies 'is-json-boolean
+				     :satisfies-desc "must be true or false"))
 	  (wcs-nstars-min (get-param "WCS-NSTARS-MIN" :default 8))
 	  (wcs-rms-max (get-param "WCS-RMS-MAX" :default 0.5))
 	  (wcs-fit-norder (get-param "WCS-FIT-NORDER" :default 1))
-	  (wcs-allow-saturated (get-param "WCS-ALLOW-SATURATED" :default T))
+	  (wcs-allow-saturated (get-param "WCS-ALLOW-SATURATED" :default T
+					  :satisfies 'is-json-boolean
+					  :satisfies-desc "must be true or false"))
+	  (wcs-position-maxerr (get-param "WCS-POSITION-MAXERR"
+					  :default *default-wcs-position-maxerr*))
+	  (wcs-kitchen-sink (get-param "WCS-KITCHEN-SINK" :default nil
+				       :satisfies 'is-json-boolean
+				       :satisfies-desc "must be true or false"))
 	  ;;
-	  (phot-calib-p (get-param  "PHOT-CALIB" :default t))
+	  (phot-calib-p (get-param "PHOT-CALIB" :default t
+				   :satisfies 'is-json-boolean
+				   :satisfies-desc "must be true or false"))
 	  (phot-calib-catalog (get-param "PHOT-CATALOG" :default "refcat"))
-	  (redo-phot-calib-p (get-param "REDO-PHOT-CALIB" :default nil))
+	  (redo-phot-calib-p (get-param "REDO-PHOT-CALIB" :default nil
+					:satisfies 'is-json-boolean
+					:satisfies-desc "must be true or false"))
 	  (phot-calib-nstars-min (get-param  "PHOT-CALIB-NSTARS-MIN" :default 8))
+	  (phot-kitchen-sink (get-param "PHOT-KITCHEN-SINK" :default nil
+					:satisfies 'is-json-boolean
+					:satisfies-desc "must be true or false"))
 	  ;;
-	  (redo-qualities-p (get-param "REDO-QUALITIES" :default nil))
+	  (redo-qualities-p (get-param "REDO-QUALITIES" :default nil
+				       :satisfies 'is-json-boolean
+				       :satisfies-desc "must be true or false"))
 	  ;;
 	  ;; compute other image qualities
-	  (compute-image-qualities (get-param "COMPUTE-IMAGE-QUALITIES" :default t))
+	  (compute-image-qualities (get-param "COMPUTE-IMAGE-QUALITIES" :default t
+					      :satisfies 'is-json-boolean
+					      :satisfies-desc "must be true or false"))
 	  ;;
-	  (cleanup-p (get-param "CLEANUP" :default nil)))
+	  (cleanup-p (get-param "CLEANUP" :default t
+				:satisfies 'is-json-boolean
+				:satisfies-desc "must be true or false")))
 
-       
       (jcom-test-expr (not (probe-file fits-file))
 		      "CANNOT-LOCATE-FITS-FILE"
 		      (format nil "Cannot locate fits file ~A" fits-file))
@@ -95,6 +149,14 @@
       (jcom-test-expr (not (is-integer-in wcs-fit-norder 1 10))
 		      "INVALID-WCS-FIT-NORDER"
 		      (format nil "Invalid WCS-FIT-NORDER (1-10)) ~A" wcs-fit-norder))
+      ;; the kitchen sinks choose their own catalogs and position error, so
+      ;; WCS-CATALOG, WCS-POSITION-MAXERR and PHOT-CATALOG are simply ignored
+      ;; (not checked) when they are on - lenient with the caller
+      (jcom-test-expr (and (not wcs-kitchen-sink)
+			   (not (is-real-in wcs-position-maxerr 0.01d0 60d0)))
+		      "INVALID-WCS-POSITION-MAXERR"
+		      (format nil "Invalid WCS-POSITION-MAXERR (0.01-60 arcmin) ~A"
+			      wcs-position-maxerr))
       (jcom-test-expr (not (is-integer-in phot-calib-nstars-min 3 10000000))
 		      "INVALID-PHOT-CALIB-NSTARS-MIN"
 		      (format nil "Invalid PHOT-CALIB-NSTARS-MIN (>=3) ~A"
@@ -107,11 +169,14 @@
 		      (format nil
 			      "Cannot figure out which extension to use for ~A"
 			      fits-file))
-		       
-       
-       
-       
-   
+
+      ;; reject an extension that isn't a nonempty 2D image, but keep
+      ;; EXTENSION as given (name or number) rather than normalizing it
+      (jcom-test-expr (not (%validate-calib-extension fits-file extension))
+		      "INVALID-EXTENSION"
+		      (format nil
+			      "EXTENSION ~S is not a valid 2D image extension in ~A"
+			      extension fits-file))
 
       ;; ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
       ;; invocation is OK, so do the calibration
@@ -159,7 +224,9 @@
 		     :wcs-rms-max wcs-rms-max
 		     :wcs-nstars-min wcs-nstars-min
 		     :wcs-fit-norder wcs-fit-norder
-		     :wcs-allow-saturated wcs-allow-saturated))
+		     :wcs-allow-saturated wcs-allow-saturated
+		     :wcs-position-maxerr wcs-position-maxerr
+		     :wcs-kitchen-sink wcs-kitchen-sink))
 		 (when (not jresp)
 		   (return-with-error
 		    "ERROR-IN-WCS"
@@ -196,7 +263,8 @@
 		     :extension extension
 		     :phot-calib-catalog phot-calib-catalog
 		     :redo-phot-calib-p redo-phot-calib-p
-		     :phot-calib-nstars-min phot-calib-nstars-min))
+		     :phot-calib-nstars-min phot-calib-nstars-min
+		     :phot-kitchen-sink phot-kitchen-sink))
 		 (when (not jresp)
 		   (return-with-error
 		    "ERROR-IN-PHOT-CALIB"

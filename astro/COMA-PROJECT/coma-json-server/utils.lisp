@@ -222,6 +222,13 @@
 (defun is-real-in (x xmin xmax)
   (and (realp x) (<= xmin x xmax)))
 
+;; for INPUT parameters: yason (jtk-yason) parses JSON true as T, and false
+;; and null as NIL, because *PARSE-JSON-BOOLEANS-AS-SYMBOLS* is NIL.
+;; (YASON:TRUE / YASON:FALSE are only for OUTPUT - see JSON-BOOL - because
+;; NIL encodes as null, not false.)
+(defun is-json-boolean (x)
+  (or (eq x t) (eq x nil)))
+
 (defun delete-dir-for-fits-file (fits-file)
   (let ((dir (terapix:get-fits-directory fits-file)))
     (when (and dir (cl-fad:directory-exists-p dir))

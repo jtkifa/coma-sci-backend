@@ -143,8 +143,9 @@ WCS fits."
 	(setf fwhm (estimate-seeing-fwhm-from-sextractor-catalog
 		    sxhash)))))
 
-    ;; refcat is a special case
-    (when (equalp astref-catalog "refcat")
+    ;; catalogs SCAMP can't query directly: fetch them with ASTRO-CATALOG
+    ;; and hand SCAMP an intermediate LDAC FILE
+    (when (member astref-catalog '("refcat" "ps1" "ps1-stack") :test 'equalp)
       (setf create-ldac-file t))
     
     ;; if we are using an intermediate ldac-file, then write it to a file
