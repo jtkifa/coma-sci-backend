@@ -251,9 +251,9 @@
 		     (when (and result
 				(or (not phot-kitchen-sink)
 				    (phot-calib:phot-calib-result-ok result)))
-		       (when phot-kitchen-sink
-			 (setf (gethash "PHOT-ATTEMPTS" parameters)
-			       (coerce (reverse attempts) 'vector)))
+		       ;; reported in both modes - a single entry if no kitchen sink
+		       (setf (gethash "PHOT-ATTEMPTS" parameters)
+			     (coerce (reverse attempts) 'vector))
 		       (let ((phot-calib-info
 			       (%write-coma-phot-calib-info
 				fits-file extension
@@ -273,9 +273,8 @@
 			 (setf (gethash "PHOT-CALIB-INFO" parameters) phot-calib-info)
 			 (return-from retblock json-resp))))
 	      finally
-		 (when phot-kitchen-sink
-		   (setf (gethash "PHOT-ATTEMPTS" parameters)
-			 (coerce (reverse attempts) 'vector)))
+		 (setf (gethash "PHOT-ATTEMPTS" parameters)
+		       (coerce (reverse attempts) 'vector))
 		 (return-with-error
 		  "PHOT-CALIB-FAILURE"
 		  (if phot-kitchen-sink

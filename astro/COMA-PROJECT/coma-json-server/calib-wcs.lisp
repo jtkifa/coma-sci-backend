@@ -268,9 +268,9 @@ WCS header dictionary
 		     (push h attempts))
 		   ;;
 		   (when wcs
-		     (when wcs-kitchen-sink
-		       (setf (gethash "WCS-ATTEMPTS" parameters)
-			     (coerce (reverse attempts) 'vector)))
+		     ;; reported in both modes - a single entry if no kitchen sink
+		     (setf (gethash "WCS-ATTEMPTS" parameters)
+			   (coerce (reverse attempts) 'vector))
 		     (let ((wcs-info (%write-coma-wcs-info
 				      fits-file extension wcs
 				      :catalog catalog
@@ -285,9 +285,8 @@ WCS header dictionary
 		       (return-from retblock json-resp))))
 	      finally
 		 ;; every attempt failed
-		 (when wcs-kitchen-sink
-		   (setf (gethash "WCS-ATTEMPTS" parameters)
-			 (coerce (reverse attempts) 'vector)))
+		 (setf (gethash "WCS-ATTEMPTS" parameters)
+		       (coerce (reverse attempts) 'vector))
 		 (return-with-error
 		  "FAILED-TO-RUN-WCS-FIT"
 		  (if wcs-kitchen-sink

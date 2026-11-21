@@ -1,8 +1,12 @@
 
 ;; activate new fits-stamp-cairo
 
-;; quiet astorb loading message in case we need astorb
-(defparameter cl-user::astorb-quiet t) 
+;; quiet astorb loading message in case we need astorb - otherwise its
+;; "ASTORB: ..." lines go to stdout ahead of the JSON response.
+;; ASTORB reads PCONFIG "astorb:quiet" (the old CL-USER::ASTORB-QUIET is
+;; ignored).  SYMBOL-CALL because PCONFIG may not exist when this is read.
+(asdf:load-system "pconfig")
+(uiop:symbol-call "PCONFIG" "SET-CONFIG" "astorb:quiet" t)
  
 (asdf:defsystem coma-json-server
   :depends-on (alexandria imutils instrument-id imred slalib-ephem

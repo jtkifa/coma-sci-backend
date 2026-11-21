@@ -198,8 +198,23 @@ where PSFs are ill determined.
 ;; because we know we can't trust small reported photometric errors.   
 ;; In practice, a value of 0.01 stabilizes the zeropoint between
 ;; adjacent images in a test sample a bit.
+;;
+;; 0.01 proved far too small: on a CFHT/MegaPrime r image vs refcat the
+;; core of the catalog-image dmag distribution had a robust sigma of
+;; ~0.07 mag against nominal errors of ~0.015 (colour terms, flat
+;; structure), so half the stars were treated as outliers, the
+;; likelihood fragmented into spikes, and the ZP locked onto a sub-clump
+;; 0.02 mag (3 sigma) off the core.  With 0.03 the peak is Gaussian.
+(defparameter *default-extra-error* 0.03d0)
 
-(defun %compute-mag-offset/bayes (pcobj-pair-list &key (extra-error 0.01d0))
+;; tolerances on the Gaussian shape of the likelihood peak, passed to
+;; BAYES-OUTLIER:BAYES-OUTLIER-ESTIMATE-MEAN as SHAPE-TOLERANCE and
+;; MAX-WIDTH-RATIO.  Photometric calibration needs only a ballpark
+;; Gaussian, but a peak with a broad shoulder on one side is not OK.
+(defparameter *peak-shape-tolerance* 0.2d0)
+(defparameter *peak-max-width-ratio* 2.0d0)
+
+(defun %compute-mag-offset/bayes (pcobj-pair-list &key (extra-error *default-extra-error*))
 
   (cond ((zerop (length pcobj-pair-list))
 	 (values 0d0 0d0 0))  ;; dmag dmag-err nstars
@@ -223,7 +238,9 @@ where PSFs are ill determined.
 		(bayes-outlier:bayes-outlier-estimate-mean 
 		 dmag-vec dmag-err-vec 
 		 ;; hardwire these values for the background; it shouldn't be sensitive
-		 :s 0.15 :f 0.15))
+		 :s 0.15 :f 0.15
+		 :shape-tolerance *peak-shape-tolerance*
+		 :max-width-ratio *peak-max-width-ratio*))
 	      (dmag (bayes-outlier:outlier-result-xm bayes-result))
 	      (dmag-err (bayes-outlier:outlier-result-xm-err bayes-result)))
 
@@ -264,7 +281,7 @@ where PSFs are ill determined.
        (max-catalog-mag 22)
        (min-catalog-mag 0)
        (mag-offset-function #'%compute-mag-offset/bayes)
-       (extra-error 0.01d0) 
+       (extra-error *default-extra-error*) 
        (stars-only t)
        (matches-file nil))
   
@@ -463,7 +480,7 @@ If EXTENSION is not provided, uses the onechip extension for onechip instruments
        (min-obj-flux 10000)
        (sextractor-reject-flags #xFFFF)
        (stars-only t)
-       (extra-error 0.01d0)
+       (extra-error *default-extra-error*)
        ;; sextractor configs
        (md5-avoid-rerun t)
        (tol/arcsec 1.0)
@@ -771,7 +788,7 @@ The process is
        (min-obj-flux 10000)
        (sextractor-reject-flags #xFFFF)
        (stars-only t)
-       (extra-error 0.01d0)
+       (extra-error *default-extra-error*)
        ;; sextractor configs
        (md5-avoid-rerun t)
        (tol/arcsec 1.0)
@@ -844,7 +861,7 @@ CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
        (min-obj-flux 20000)
        (sextractor-reject-flags #xFFFF)
        (stars-only t)
-       (extra-error 0.01d0)
+       (extra-error *default-extra-error*)
        (use-corrected-apertures t)
        ;; sextractor configs
        (md5-avoid-rerun t)
@@ -1148,7 +1165,7 @@ Tests show that values of PHOT_AUTOPARAMS larger than 5,5 capture over
        (min-obj-flux 20000)
        (sextractor-reject-flags #xFFFF)
        (stars-only t)
-       (extra-error 0.01d0)
+       (extra-error *default-extra-error*)
        (use-corrected-apertures t)
        ;; sextractor configs
        (phot-autoparams '(5.5 5.5)) ;; wide phot-autoparams
@@ -1222,7 +1239,7 @@ CATALOG-TYPE must be one of ASTRO-CATALOG:*ALLOWED-CACHE-CATALOG-TYPES*"
        (min-obj-flux 20000)
        (sextractor-reject-flags #xFFFF)
        (stars-only t)
-       (extra-error 0.01d0)
+       (extra-error *default-extra-error*)
        ;; sextractor configs
        (md5-avoid-rerun t)
        (tol/arcsec 1.0)
@@ -1453,7 +1470,7 @@ The process is
        (min-obj-flux 20000)
        (sextractor-reject-flags #xFFFF)
        (stars-only t)
-       (extra-error 0.01d0)
+       (extra-error *default-extra-error*)
        ;; sextractor configs
        (md5-avoid-rerun t)
        (tol/arcsec 1.0)

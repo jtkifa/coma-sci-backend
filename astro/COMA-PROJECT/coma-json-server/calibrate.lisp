@@ -21,7 +21,7 @@
                  // WCS-RMS-MAX. ps1-stack is skipped south of dec
                  // *PS1-DEC-MIN* (-30). WCS-CATALOG and WCS-POSITION-MAXERR
                  // are ignored when it is on. Each try is reported in
-                 // WCS-ATTEMPTS.
+                 // WCS-ATTEMPTS (a single entry when it is off).
                  "WCS-KITCHEN-SINK": false,
 
 
@@ -34,7 +34,8 @@
                  // galaxies as standards) until a calibration is OK with
                  // PHOT-CALIB-NSTARS-MIN stars. PS1 catalogs are skipped south
                  // of dec *PS1-DEC-MIN* (-30). PHOT-CATALOG is ignored when
-                 // it is on. Each try is reported in PHOT-ATTEMPTS.
+                 // it is on. Each try is reported in PHOT-ATTEMPTS (a
+                 // single entry when it is off).
                  "PHOT-KITCHEN-SINK": false,
 
                  "COMPUTE-IMAGE-QUALITIES":true,

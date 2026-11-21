@@ -1,0 +1,17 @@
+title: "cl-cairoplot"
+subtitle: "Scientific plots from Common Lisp"
+lang: en
+toc-title: Contents
+# PDF
+papersize: a4
+fontsize: 11pt
+geometry: "margin=2.5cm"
+colorlinks: true
+linkcolor: "blue"
+urlcolor: "blue"
+toc: true
+toc-depth: 2
+# Fonts for the PDF that have the Greek letters and astronomical symbols of the examples
+mainfont: "STIXGeneral"
+monofont: "Menlo"
+monofontoptions: "Scale=0.85"

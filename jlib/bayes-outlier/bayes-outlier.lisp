@@ -85,7 +85,9 @@ The optimization is solely over xm, not f or s.
 				      (mean-guess nil)
 				      (eps 1d-8)
 				      (s 1.0) (f 0.1)
-				      (max-n-evaluations 10000))
+				      (max-n-evaluations 10000)
+				      (shape-tolerance 0.1d0)
+				      (max-width-ratio nil))
 "Given a sequence of data XSEQ and its nominally Gaussian errors DXSEQ,
 compute the best estimate of the mean and standard deviation,
 returning an OUTLIER-RESULT structure in which
@@ -95,9 +97,17 @@ returning an OUTLIER-RESULT structure in which
     OUTLIER-RESULT-DELTA-CHISQR-VEC  - delta-chisqr excursions explored
     OUTLIER-RESULT-DELTA-X-PLUS      - how much xm changed to produce 
     OUTLIER-RESULT-DELTA-X-MINUS           correspnding delta-chisqr 
-    OUTLIER-RESULT-OK                - T if the chisqr excursions look 
-                                       gaussian (parabolic), a quick test 
+    OUTLIER-RESULT-OK                - T if the chisqr excursions look
+                                       gaussian (parabolic), a quick test
                                        if this is a nice minimum.
+                                       Each excursion DX must be at least
+                                       (1-SHAPE-TOLERANCE) of the Gaussian
+                                       expectation SIGMA0*sqrt(delta-chisqr)
+                                       and, if MAX-WIDTH-RATIO is given,
+                                       at most MAX-WIDTH-RATIO times it,
+                                       which rejects skewed or shouldered
+                                       peaks.  The defaults (0.1, NIL)
+                                       give the original one-sided test.
     NON-OUTLIER-LIKELIHOOD           - ratio of Prob(gauss)/Prog(outlier) 
                                        not using F.
     OUTLIER-FRACTION                 - fraction of points for which 
@@ -284,10 +294,16 @@ keywords are, but it is probably best not to do so."
 		  for sigma0 = (outlier-result-xm-err outres)
 		  for dx+ across  (outlier-result-delta-x-plus  outres)
 		  for dx- across  (outlier-result-delta-x-minus outres)
-		  ;; require 10% agreement with expected scaling that 
-		  ;; dx increase by equal steps as delta_chisqr=1,4,9,16
-		  when (or (> (- 1.0  (/  dx+ sigma sigma0)) 0.1)
-			   (> (- 1.0  (/  dx- sigma sigma0)) 0.1))
+		  ;; require dx to increase in equal steps as
+		  ;; delta_chisqr=1,4,9,16, to within SHAPE-TOLERANCE on the
+		  ;; narrow side and (optionally) MAX-WIDTH-RATIO on the wide side
+		  for ratio+ = (/ dx+ sigma sigma0)
+		  for ratio- = (/ dx- sigma sigma0)
+		  when (or (> (- 1d0 ratio+) shape-tolerance)
+			   (> (- 1d0 ratio-) shape-tolerance)
+			   (and max-width-ratio
+				(or (> ratio+ max-width-ratio)
+				    (> ratio- max-width-ratio))))
 		    do (setf ok nil)
 		  finally (setf (outlier-result-ok outres) ok))
 		 
